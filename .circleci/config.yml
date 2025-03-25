@@ -1,0 +1,50 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: ruby:3.2.2
+    steps:
+      - checkout
+      
+      # Restore bundle cache
+      - restore_cache:
+          keys:
+            - v1-dependencies-{{ checksum "Gemfile.lock" }}
+            - v1-dependencies-
+      
+      - run:
+          name: Install dependencies
+          command: |
+            gem install bundler -v 2.5.4
+            bundle install --jobs=4 --retry=3 --path vendor/bundle
+      
+      # Save bundle cache
+      - save_cache:
+          paths:
+            - ./vendor/bundle
+          key: v1-dependencies-{{ checksum "Gemfile.lock" }}
+      
+      - run:
+          name: Run tests
+          command: |
+            bundle exec rspec
+      
+      - run:
+          name: Run Rubocop
+          command: |
+            bundle exec rubocop || true
+      
+      - run:
+          name: Build gem
+          command: |
+            gem build runtime_analysis.gemspec
+            
+      - store_artifacts:
+          path: ./runtime_analysis-*.gem
+          destination: gem
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      - build

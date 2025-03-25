@@ -1,0 +1,30 @@
+/.bundle/
+/.yardoc
+/_yardoc/
+/coverage/
+/doc/
+/pkg/
+/spec/reports/
+/spec/tmp/
+/tmp/
+/.code-beacon/
+
+# rspec failure tracking
+.rspec_status
+
+# Gem builds
+*.gem
+
+# Documentation
+/doc/yard/
+
+# Environment variables
+.env
+
+# IDE files
+.idea/
+.vscode/
+
+# OS specific files
+.DS_Store
+Thumbs.db

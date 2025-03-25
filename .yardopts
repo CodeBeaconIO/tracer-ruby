@@ -1,0 +1,12 @@
+--markup markdown
+--markup-provider redcarpet
+--readme README.md
+--title 'RuntimeAnalysis Documentation'
+--protected
+--private
+--embed-mixins
+--output-dir doc/yard
+lib/**/*.rb
+-
+LICENSE.txt
+CHANGELOG.md 

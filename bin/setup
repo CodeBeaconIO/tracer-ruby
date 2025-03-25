@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+set -vx
+
+# Install dependencies
+bundle install
+
+# Create necessary directories
+mkdir -p tmp
+mkdir -p doc/yard
+
+# Run initial tests to verify setup
+bundle exec rake spec
+
+# Print setup complete message
+echo "Setup complete! You can now start developing with Code Beacon Tracer."
