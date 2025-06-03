@@ -125,12 +125,7 @@ module Codebeacon
       end
 
       def trace_enabled?
-        # @trace_enabled
-        true
-      end
-
-      def trace_enabled=(value)
-        @trace_enabled = value
+        @trace_enabled_cache ||= load_tracer_config_enabled
       end
 
       def debug?
@@ -193,6 +188,29 @@ module Codebeacon
         # @return_count += 1
         # Codebeacon::Tracer.logger.info("Call count: #{@return_count}")
         # Codebeacon::Tracer.logger.info("Return @depth: #{@depth}, method: #{tp.method_id}, line: #{tp.lineno}, path: #{tp.path}")
+      end
+
+      def tracer_config_path
+        File.join(data_dir, "tracer_config.yml")
+      end
+
+      def reload_tracer_config
+        remove_instance_variable(:@trace_enabled_cache) if defined?(@trace_enabled_cache)
+        trace_enabled?
+      end
+
+      private
+
+      def load_tracer_config_enabled
+        if File.exist?(tracer_config_path)
+          config_data = YAML.load_file(tracer_config_path)
+          config_data['tracing_enabled'] != false  # Default to true if not specified
+        else
+          true  # Default to enabled if no config file exists
+        end
+      rescue => e
+        logger.warn("Error loading tracer config: #{e.message}")
+        true  # Default to enabled on error
       end
     end
   end

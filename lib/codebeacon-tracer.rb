@@ -52,6 +52,8 @@ module Codebeacon
       # @yieldparam tracer [Tracer] The tracer object
       # @return [Object] The result of the block
       def trace(name = nil, description = nil)
+        return yield(nil) unless config.trace_enabled?
+        
         begin
           setup
           @tracer = Tracer.new(name, description)
@@ -72,6 +74,8 @@ module Codebeacon
       # Starts tracing without a block
       # @return [void]
       def start
+        return unless config.trace_enabled?
+        
         setup
         @tracer = Tracer.new()
         @tracer.start
@@ -80,6 +84,8 @@ module Codebeacon
       # Stops tracing and persists the results
       # @return [void]
       def stop
+        return unless @tracer # checks whether trace_enabled? was false when start was called or if it was called
+
         @tracer.stop
         persist
         cleanup
