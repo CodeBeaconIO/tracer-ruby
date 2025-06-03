@@ -1,6 +1,12 @@
 require 'fileutils'
 require 'yaml'
 
+begin
+  require 'listen'
+rescue LoadError
+  # Listen gem not available, file watching will be disabled
+end
+
 module Codebeacon
   module Tracer
     class Configuration
@@ -19,6 +25,7 @@ module Codebeacon
         exclude_paths << lib_root
         reload_paths_to_record
         load_main_config
+        start_config_file_watcher
       end
 
       def load_main_config
@@ -85,6 +92,10 @@ module Codebeacon
         File.expand_path(File.join(lib_root, 'config.yml')) 
       end
 
+      def tracer_config_path
+        File.join(data_dir, "tracer_config.yml")
+      end
+
       def read_paths
         if File.exist?(paths_path)
           YAML.load_file(paths_path)
@@ -125,7 +136,15 @@ module Codebeacon
       end
 
       def trace_enabled?
-        @trace_enabled_cache ||= load_tracer_config_enabled
+        if @donotcache_trace_enabled
+          load_tracer_config_enabled
+        else
+          @trace_enabled ||= load_tracer_config_enabled
+        end
+      end
+
+      def reload_tracer_config
+        @trace_enabled = load_tracer_config_enabled
       end
 
       def debug?
@@ -190,13 +209,28 @@ module Codebeacon
         # Codebeacon::Tracer.logger.info("Return @depth: #{@depth}, method: #{tp.method_id}, line: #{tp.lineno}, path: #{tp.path}")
       end
 
-      def tracer_config_path
-        File.join(data_dir, "tracer_config.yml")
+      def start_config_file_watcher
+        return unless defined?(Listen) && !@config_listener
+        return unless File.directory?(data_dir)
+        
+        begin
+          @config_listener = Listen.to(data_dir, only: /tracer_config\.yml$/) do |modified, added, removed|
+            if (modified + added + removed).any? { |path| File.basename(path) == 'tracer_config.yml' }
+              reload_tracer_config
+            end
+          end
+          @config_listener.start
+        rescue => e
+          @donotcache_trace_enabled = true
+          logger.warn("Failed to start config file watcher: #{e.message}")
+        end
       end
 
-      def reload_tracer_config
-        remove_instance_variable(:@trace_enabled_cache) if defined?(@trace_enabled_cache)
-        trace_enabled?
+      def stop_config_file_watcher
+        if @config_listener
+          @config_listener.stop
+          @config_listener = nil
+        end
       end
 
       private
@@ -206,11 +240,11 @@ module Codebeacon
           config_data = YAML.load_file(tracer_config_path)
           config_data['tracing_enabled'] != false  # Default to true if not specified
         else
-          true  # Default to enabled if no config file exists
+          true
         end
       rescue => e
         logger.warn("Error loading tracer config: #{e.message}")
-        true  # Default to enabled on error
+        true
       end
     end
   end

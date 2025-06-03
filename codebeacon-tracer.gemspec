@@ -35,6 +35,7 @@ Gem::Specification.new do |spec|
   # Dependencies
   spec.add_dependency "parser", "~> 3.2"
   spec.add_dependency 'sqlite3', '~> 1.4'
+  spec.add_dependency "listen", "~> 3.8", ">= 3.8.0"
   spec.add_development_dependency "pry", "~> 0.14"
   spec.add_development_dependency "debug", "~> 1.8"
   spec.add_development_dependency "rspec", "~> 3.0"
