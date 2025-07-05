@@ -54,6 +54,11 @@ The project includes an `analyze` script that executes your script within a trac
 bin/analyze path/to/your/script.rb
 ```
 
+### Recording Metadata Exclusion
+
+1. **Pre-trace filtering**: When name and description are provided to `Codebeacon::Tracer.trace()`, matching patterns skip tracing entirely.
+2. **Post-trace filtering**: When metadata is set after tracing begins (e.g., Rails middleware), tracing occurs but matching patterns skip data persistence.
+
 ## Development
 
 After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.

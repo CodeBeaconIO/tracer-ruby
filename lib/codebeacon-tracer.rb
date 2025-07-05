@@ -52,7 +52,14 @@ module Codebeacon
       # @yieldparam tracer [Tracer] The tracer object
       # @return [Object] The result of the block
       def trace(name = nil, description = nil)
-        return yield(nil) unless config.trace_enabled?
+        unless config.trace_enabled?
+          logger.info("Tracing is disabled. Skipping trace: #{name} - #{description}")
+          return yield(nil)
+        end
+        if config.skip_tracing?(name, description)
+          logger.info("Exclusion rules matched. Skipping trace: #{name} - #{description}")
+          return yield(nil)
+        end
         
         begin
           setup
@@ -87,7 +94,7 @@ module Codebeacon
         return unless @tracer # checks whether trace_enabled? was false when start was called or if it was called
 
         @tracer.stop
-        persist
+        persist(@tracer.name, @tracer.description)
         cleanup
       end
 
@@ -99,24 +106,31 @@ module Codebeacon
       end
 
       private def persist(name = "", description = "")
-        unless Codebeacon::Tracer.config.dry_run?
-          begin
-            schema = DatabaseSchema.new
-            schema.create_tables
-            DatabaseSchema.trim_db_files
-            pm = PersistenceManager.new(schema.db)
-            ordered_sources = [ @app_node, @gem_node, @rubylib_node ]
-            pm.save_metadata(name, description)
-            pm.save_node_sources(ordered_sources)
-            pm.save_trees(@tracer.tree_manager.trees)
-            schema.create_indexes
-            schema.db.close
-            touch_refresh
-          rescue => e
-            Codebeacon::Tracer.logger.error("Error during persistence: #{e.message}")
-            Codebeacon::Tracer.logger.error(e.backtrace.join("\n")) if Codebeacon::Tracer.config.debug?
-            # Continue execution without crashing the application
-          end
+        if config.skip_tracing?(name, description)
+          config.logger.debug("Skipping persistence due to metadata exclusion - name: '#{name}', description: '#{description}'") if config.debug?
+          return
+        end
+        
+        if Codebeacon::Tracer.config.dry_run?
+          config.logger.debug("Dry run - skipping persistence") if config.debug?
+          return
+        end
+
+        begin
+          schema = DatabaseSchema.new
+          schema.create_tables
+          DatabaseSchema.trim_db_files
+          pm = PersistenceManager.new(schema.db)
+          ordered_sources = [ @app_node, @gem_node, @rubylib_node ]
+          pm.save_metadata(name, description)
+          pm.save_node_sources(ordered_sources)
+          pm.save_trees(@tracer.tree_manager.trees)
+          schema.create_indexes
+          schema.db.close
+          touch_refresh
+        rescue => e
+          Codebeacon::Tracer.logger.error("Error during persistence: #{e.message}")
+          Codebeacon::Tracer.logger.error(e.backtrace.join("\n")) if Codebeacon::Tracer.config.debug?
         end
       end
 

@@ -136,7 +136,7 @@ module Codebeacon
       end
 
       def trace_enabled?
-        if @donotcache_trace_enabled
+        if @donotcache
           load_tracer_config_enabled
         else
           @trace_enabled ||= load_tracer_config_enabled
@@ -145,6 +145,37 @@ module Codebeacon
 
       def reload_tracer_config
         @trace_enabled = load_tracer_config_enabled
+        @recording_meta_exclude_patterns = nil  # Force reload of exclusion patterns
+      end
+
+      def recording_meta_exclude_patterns
+        if @donotcache
+          load_recording_meta_exclude_patterns
+        else
+          @recording_meta_exclude_patterns ||= load_recording_meta_exclude_patterns
+        end
+      end
+
+      def skip_tracing?(name, description)
+        return false unless recording_meta_exclude_patterns&.any?
+        
+        name_str = name.to_s
+        description_str = description.to_s
+        
+        excluded = recording_meta_exclude_patterns.any? do |pattern|
+          name_matches = File.fnmatch(pattern['name'], name_str, File::FNM_CASEFOLD)
+          description_matches = File.fnmatch(pattern['description'], description_str, File::FNM_CASEFOLD)
+          name_matches && description_matches
+        end
+        
+        if excluded && debug?
+          logger.debug("Skipping trace due to metadata exclusion - name: '#{name_str}', description: '#{description_str}'")
+        end
+        
+        excluded
+      rescue => e
+        logger.warn("Error checking skip_tracing patterns: #{e.message}")
+        false  # Default to not skipping on error
       end
 
       def debug?
@@ -221,7 +252,7 @@ module Codebeacon
           end
           @config_listener.start
         rescue => e
-          @donotcache_trace_enabled = true
+          @donotcache = true
           logger.warn("Failed to start config file watcher: #{e.message}")
         end
       end
@@ -234,6 +265,30 @@ module Codebeacon
       end
 
       private
+
+      def load_recording_meta_exclude_patterns
+        if File.exist?(tracer_config_path)
+          config_data = YAML.load_file(tracer_config_path)
+          patterns = config_data.dig('filters', 'recording_meta_exclude') || []
+          
+          # Validate patterns
+          valid_patterns = patterns.select do |pattern|
+            if pattern.is_a?(Hash) && pattern.key?('name') && pattern.key?('description')
+              true
+            else
+              logger.warn("Invalid recording_meta_exclude pattern: #{pattern.inspect}")
+              false
+            end
+          end
+          
+          valid_patterns
+        else
+          []
+        end
+      rescue => e
+        logger.warn("Error loading recording meta exclude patterns: #{e.message}")
+        []
+      end
 
       def load_tracer_config_enabled
         if File.exist?(tracer_config_path)
