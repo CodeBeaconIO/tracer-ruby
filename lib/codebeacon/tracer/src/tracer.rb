@@ -4,16 +4,26 @@ require_relative 'models/thread_local_call_tree_manager'
 module Codebeacon
   module Tracer
     class Tracer
-      attr_reader :id, :tree_manager
-      attr_accessor :name, :description
+      attr_reader :id, :tree_manager, :metadata, :name, :description
 
-      def initialize(name = nil, description = nil)
+      def initialize(name: nil, description: nil, caller_location: nil, trigger_type: nil)
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("calls traced")
         @traces = [trace_call, trace_b_call, trace_return, trace_b_return]
         @name = name
         @description = description
         @trace_id = SecureRandom.uuid
         @tree_manager = ThreadLocalCallTreeManager.new(@trace_id)
+        @metadata = TraceMetadata.new(name:, description:, caller_location:, trigger_type:)
+      end
+
+      def name=(new_name)
+        @name = new_name
+        @metadata.instance_variable_set(:@name, new_name)
+      end
+
+      def description=(new_description)
+        @description = new_description
+        @metadata.instance_variable_set(:@description, new_description)
       end
 
       def id()
@@ -32,6 +42,7 @@ module Codebeacon
       def stop()
         stop_traces
         @progress_logger.finish()
+        @metadata.finish_trace
       end
 
       def cleanup()

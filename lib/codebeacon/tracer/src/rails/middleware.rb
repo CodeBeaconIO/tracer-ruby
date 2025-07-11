@@ -12,7 +12,8 @@ module Codebeacon
         begin
           Codebeacon::Tracer.config.set_query_config(env['QUERY_STRING'])
           if !@first_run #Codebeacon::Tracer.config.trace_enabled? && !@first_run
-            Codebeacon::Tracer.trace do |tracer|
+            # For middleware, the caller is this method itself
+            Codebeacon::Tracer.trace(trigger_type: "middleware") do |tracer|
               dry_run_log = Codebeacon::Tracer.config.dry_run? ? "--DRY RUN-- " : ""
               Codebeacon::Tracer.logger.info(dry_run_log + "Tracing enabled for URI=#{env['REQUEST_URI']}")
               response = @app.call(env).tap do |_|
@@ -22,6 +23,9 @@ module Codebeacon
                 params = env['action_dispatch.request.parameters'].dup
                 tracer.name = "#{params.delete('controller')}##{params.delete('action')}"
                 tracer.description = params.to_json
+                # Update the metadata with the Rails-specific information
+                tracer.metadata.instance_variable_set(:@name, tracer.name)
+                tracer.metadata.instance_variable_set(:@description, tracer.description)
               rescue => e
                 Codebeacon::Tracer.logger.error("Error setting tracer metadata: #{e.message}")
               end

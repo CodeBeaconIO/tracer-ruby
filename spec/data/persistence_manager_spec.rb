@@ -19,15 +19,21 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
   end
 
   describe '#save_metadata' do
-    it 'saves metadata to the database' do
-      name = "Test Trace"
-      description = "Test Description"
+    it 'saves enhanced metadata to the database' do
+      # Create metadata with caller location
+      caller_location = caller_locations(0, 1).first
+      metadata = Codebeacon::Tracer::TraceMetadata.new(name: "Enhanced Test", description: "Enhanced Description", caller_location:, trigger_type: "test")
+      metadata.finish_trace
       
-      @persistence_manager.save_metadata(name, description)
+      @persistence_manager.save_metadata(metadata)
       
-      result = @db.execute("SELECT name, description FROM metadata LIMIT 1").first
-      expect(result["name"]).to eq(name)
-      expect(result["description"]).to eq(description)
+      result = @db.execute("SELECT * FROM metadata LIMIT 1").first
+      expect(result["name"]).to eq("Enhanced Test")
+      expect(result["description"]).to eq("Enhanced Description")
+      expect(result["caller_file"]).to be_a(String)
+      expect(result["caller_method"]).to be_a(String)
+      expect(result["caller_line"]).to be > 0
+      expect(result["duration_ms"]).to be_a(Numeric)
     end
   end
 

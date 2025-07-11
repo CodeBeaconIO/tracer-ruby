@@ -48,10 +48,14 @@ module Codebeacon
       #
       # @param name [String, nil] Optional name for the trace
       # @param description [String, nil] Optional description for the trace
+      # @param trigger_type [String] The type of trigger that initiated the trace (default: "manual")
       # @yield [tracer] Yields the tracer object to the block
       # @yieldparam tracer [Tracer] The tracer object
       # @return [Object] The result of the block
-      def trace(name = nil, description = nil)
+      def trace(name: nil, description: nil, trigger_type: "manual")
+        # Capture caller information immediately at entry point
+        caller_location = caller_locations(1, 1).first
+
         unless config.trace_enabled?
           logger.info("Tracing is disabled. Skipping trace: #{name} - #{description}")
           return yield(nil)
@@ -60,14 +64,14 @@ module Codebeacon
           logger.info("Exclusion rules matched. Skipping trace: #{name} - #{description}")
           return yield(nil)
         end
-        
+
         begin
           setup
-          @tracer = Tracer.new(name, description)
+          @tracer = Tracer.new(name:, description:, caller_location:, trigger_type:)
           result = @tracer.enable_traces do
             yield @tracer
           end
-          persist(@tracer.name, @tracer.description)
+          persist(@tracer.metadata)
           cleanup
           result
         rescue => e
@@ -79,12 +83,16 @@ module Codebeacon
       end
 
       # Starts tracing without a block
+      # @param trigger_type [String] The type of trigger that initiated the trace (default: "manual")
       # @return [void]
-      def start
+      def start(trigger_type = "manual")
+        # Capture caller information immediately at entry point
+        caller_location = caller_locations(1, 1).first
+        
         return unless config.trace_enabled?
         
         setup
-        @tracer = Tracer.new()
+        @tracer = Tracer.new(caller_location:, trigger_type:)
         @tracer.start
       end
 
@@ -94,7 +102,7 @@ module Codebeacon
         return unless @tracer # checks whether trace_enabled? was false when start was called or if it was called
 
         @tracer.stop
-        persist(@tracer.name, @tracer.description)
+        persist(@tracer.metadata)
         cleanup
       end
 
@@ -105,7 +113,10 @@ module Codebeacon
         @rubylib_node = NodeSource.new('rubylib', Codebeacon::Tracer.config.rubylib_path)
       end
 
-      private def persist(name = "", description = "")
+      private def persist(metadata)
+        name = metadata.name || ""
+        description = metadata.description || ""
+        
         if config.skip_tracing?(name, description)
           config.logger.debug("Skipping persistence due to metadata exclusion - name: '#{name}', description: '#{description}'") if config.debug?
           return
@@ -122,7 +133,7 @@ module Codebeacon
           DatabaseSchema.trim_db_files
           pm = PersistenceManager.new(schema.db)
           ordered_sources = [ @app_node, @gem_node, @rubylib_node ]
-          pm.save_metadata(name, description)
+          pm.save_metadata(metadata)
           pm.save_node_sources(ordered_sources)
           pm.save_trees(@tracer.tree_manager.trees)
           schema.create_indexes

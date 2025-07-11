@@ -31,7 +31,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       # Mock the setup method to verify it's not called
       expect(Codebeacon::Tracer).not_to receive(:setup)
       
-      result = Codebeacon::Tracer.trace('excluded#action', 'some description') do |tracer|
+      result = Codebeacon::Tracer.trace(name: 'excluded#action', description: 'some description') do |tracer|
         expect(tracer).to be_nil
         'test_result'
       end
@@ -42,7 +42,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
     it 'excludes based on description pattern' do
       expect(Codebeacon::Tracer).not_to receive(:setup)
       
-      result = Codebeacon::Tracer.trace('any_action', 'skip_this') do |tracer|
+      result = Codebeacon::Tracer.trace(name: 'any_action', description: 'skip_this') do |tracer|
         expect(tracer).to be_nil
         'test_result'
       end
@@ -56,7 +56,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       allow(Codebeacon::Tracer).to receive(:cleanup).and_call_original
       allow(Codebeacon::Tracer).to receive(:persist).and_call_original
       
-      Codebeacon::Tracer.trace('allowed#action', 'some description') do |tracer|
+      Codebeacon::Tracer.trace(name: 'allowed#action', description: 'some description') do |tracer|
         expect(tracer).not_to be_nil
         expect(tracer).to be_a(Codebeacon::Tracer::Tracer)
         'test_result'
@@ -69,7 +69,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       allow(Codebeacon::Tracer).to receive(:cleanup).and_call_original
       allow(Codebeacon::Tracer).to receive(:persist).and_call_original
       
-      Codebeacon::Tracer.trace(nil, nil) do |tracer|
+      Codebeacon::Tracer.trace() do |tracer|
         expect(tracer).not_to be_nil
         'test_result'
       end
@@ -90,7 +90,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       allow(Codebeacon::Tracer).to receive(:cleanup).and_call_original
       allow(Codebeacon::Tracer).to receive(:persist).and_call_original
       
-      Codebeacon::Tracer.trace('test_action', 'test description') do |tracer|
+      Codebeacon::Tracer.trace(name: 'test_action', description: 'test description') do |tracer|
         expect(tracer).not_to be_nil
         expect(tracer).to be_a(Codebeacon::Tracer::Tracer)
         'test_result'
@@ -115,7 +115,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
     it 'skips tracing before checking exclusion patterns' do
       expect(Codebeacon::Tracer.config).not_to receive(:skip_tracing?)
       
-      result = Codebeacon::Tracer.trace('any_action', 'any description') do |tracer|
+      result = Codebeacon::Tracer.trace(name: 'any_action', description: 'any description') do |tracer|
         expect(tracer).to be_nil
         'test_result'
       end
@@ -147,7 +147,7 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       allow(Codebeacon::Tracer).to receive(:cleanup).and_call_original
       allow(Codebeacon::Tracer).to receive(:persist).and_call_original
       
-      result = Codebeacon::Tracer.trace('test', 'test') do |tracer|
+      result = Codebeacon::Tracer.trace(name: 'test', description: 'test') do |tracer|
         expect(tracer).not_to be_nil
         'test_result'
       end
@@ -175,19 +175,19 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
     it 'matches complex glob patterns correctly' do
       # Should be excluded - admin action with sensitive data
       expect(Codebeacon::Tracer).not_to receive(:setup)
-      Codebeacon::Tracer.trace('admin#users', 'contains_sensitive_data') do |tracer|
+      Codebeacon::Tracer.trace(name: 'admin#users', description: 'contains_sensitive_data') do |tracer|
         expect(tracer).to be_nil
       end
 
       # Should be excluded - API v1 endpoint  
       expect(Codebeacon::Tracer).not_to receive(:setup)
-      Codebeacon::Tracer.trace('api#v1#users', 'any description') do |tracer|
+      Codebeacon::Tracer.trace(name: 'api#v1#users', description: 'any description') do |tracer|
         expect(tracer).to be_nil
       end
 
       # Should be excluded - health check with empty description
       expect(Codebeacon::Tracer).not_to receive(:setup)
-      Codebeacon::Tracer.trace('app_health_check', '') do |tracer|
+      Codebeacon::Tracer.trace(name: 'app_health_check') do |tracer|
         expect(tracer).to be_nil
       end
     end
@@ -198,17 +198,17 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       allow(Codebeacon::Tracer).to receive(:persist).and_call_original
 
       # Should NOT be excluded - admin without sensitive data
-      Codebeacon::Tracer.trace('admin#users', 'normal operation') do |tracer|
+      Codebeacon::Tracer.trace(name: 'admin#users', description: 'normal operation') do |tracer|
         expect(tracer).not_to be_nil
       end
 
       # Should NOT be excluded - API v3 (not matching v[12] pattern)
-      Codebeacon::Tracer.trace('api#v3#users', 'any description') do |tracer|
+      Codebeacon::Tracer.trace(name: 'api#v3#users', description: 'any description') do |tracer|
         expect(tracer).not_to be_nil
       end
 
       # Should NOT be excluded - health check with description
-      Codebeacon::Tracer.trace('app_health_check', 'detailed check') do |tracer|
+      Codebeacon::Tracer.trace(name: 'app_health_check', description: 'detailed check') do |tracer|
         expect(tracer).not_to be_nil
       end
     end
@@ -304,6 +304,10 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       Codebeacon::Tracer.config.reload_tracer_config
       Codebeacon::Tracer.config.debug = true
       
+      # Temporarily disable dry_run to test actual exclusion logic
+      original_dry_run = Codebeacon::Tracer.config.dry_run?
+      Codebeacon::Tracer.config.dry_run = false
+      
       allow(Codebeacon::Tracer).to receive(:setup).and_call_original
       allow(Codebeacon::Tracer).to receive(:cleanup).and_call_original
       
@@ -311,10 +315,14 @@ RSpec.describe 'Tracer Integration with Metadata Exclusion' do
       expect(Codebeacon::Tracer.config.logger).to receive(:debug).with(/Skipping persistence due to metadata exclusion/).at_least(:once)
       allow(Codebeacon::Tracer.config.logger).to receive(:debug)  # Allow other debug messages
       
-      Codebeacon::Tracer.trace do |tracer|
-        tracer.name = 'debug#test'
-        tracer.description = 'test description'
-        'test_result'
+      begin
+        Codebeacon::Tracer.trace do |tracer|
+          tracer.name = 'debug#test'
+          tracer.description = 'test description'
+          'test_result'
+        end
+      ensure
+        Codebeacon::Tracer.config.dry_run = original_dry_run
       end
     end
   end

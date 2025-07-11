@@ -30,8 +30,8 @@ module Codebeacon
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("nodes persisted")
       end
 
-      def save_metadata(name, description)
-        @metadata_mapper.insert(name, description)
+      def save_metadata(metadata)
+        @metadata_mapper.insert(metadata)
       end
 
       def save_node_sources(node_sources)
