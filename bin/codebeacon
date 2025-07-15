@@ -1,5 +1,4 @@
 #! /usr/bin/env ruby
-require 'pry'
 require_relative '../lib/codebeacon-tracer'
 
 script = ARGV.shift

@@ -28,8 +28,8 @@ Gem::Specification.new do |spec|
     "lib/codebeacon/tracer/version.rb",
     *Dir.glob("lib/codebeacon/tracer/src/**/*.rb")
   ]
-  spec.bindir = "exe"
-  spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
+  spec.bindir = "bin"
+  spec.executables = ["codebeacon"]
   spec.require_paths = ["lib"]
 
   # Dependencies

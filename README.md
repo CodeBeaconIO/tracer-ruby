@@ -46,12 +46,18 @@ some_method_to_analyze
 Codebeacon::Tracer.stop
 ```
 
-### Using the Analyze Script
+# Using the Codebeacon Script
 
-The project includes an `analyze` script that executes your script within a trace block.
+After installing the gem, the `codebeacon` executable will be available globally. You can use it to execute your script within a trace block:
 
 ```bash
-bin/analyze path/to/your/script.rb
+codebeacon path/to/your/script.rb
+```
+
+If you are developing locally and have not installed the gem, you can use the development script directly:
+
+```bash
+bin/codebeacon path/to/your/script.rb
 ```
 
 ### Recording Metadata Exclusion
