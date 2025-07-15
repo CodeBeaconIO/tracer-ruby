@@ -3,5 +3,5 @@ require_relative '../lib/codebeacon-tracer'
 
 script = ARGV.shift
 Codebeacon::Tracer.trace(trigger_type: "script") do
-  load script
+  load File.expand_path(script)
 end

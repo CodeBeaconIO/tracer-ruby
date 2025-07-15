@@ -106,6 +106,7 @@ module Codebeacon
           if [:call, :b_call, :return, :b_return].include?(type)
             paths << Kernel.caller(1..1)[0]
           end
+          paths.uniq!
           next if skip_methods?(paths)
           yield tp
         rescue => e
