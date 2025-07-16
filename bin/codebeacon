@@ -2,6 +2,17 @@
 require_relative '../lib/codebeacon-tracer'
 
 script = ARGV.shift
-Codebeacon::Tracer.trace(trigger_type: "script") do
-  load File.expand_path(script)
+if script.nil?
+  Codebeacon::Tracer.logger.error("No script provided")
+  exit 1
 end
+
+at_exit do
+  Codebeacon::Tracer.stop
+end
+Codebeacon::Tracer.start(
+  name: File.basename(script),
+  trigger_type: "script"
+)
+
+load File.expand_path(script)

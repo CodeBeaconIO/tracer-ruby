@@ -83,16 +83,18 @@ module Codebeacon
       end
 
       # Starts tracing without a block
+      # @param name [String, nil] Optional name for the trace
+      # @param description [String, nil] Optional description for the trace
       # @param trigger_type [String] The type of trigger that initiated the trace (default: "manual")
       # @return [void]
-      def start(trigger_type = "manual")
+      def start(name: nil, description: nil, trigger_type: "manual")
         # Capture caller information immediately at entry point
         caller_location = caller_locations(1, 1).first
         
         return unless config.trace_enabled?
         
         setup
-        @tracer = Tracer.new(caller_location:, trigger_type:)
+        @tracer = Tracer.new(name:, description:, caller_location:, trigger_type:)
         @tracer.start
       end
 
