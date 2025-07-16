@@ -1,0 +1,166 @@
+---
+description: Instructions for preparing a version increment and release for the Code Beacon ruby gem.
+globs: 
+alwaysApply: false
+---
+# Release Process
+
+This rule provides instructions for preparing a version increment and release for the Codebeacon Tracer Ruby gem.
+
+---
+
+## Preliminary Steps
+
+1. **Ensure a clean working tree and staging area**  
+   Before starting, make sure there are no uncommitted or staged changes:
+   ```
+   git status
+   ```
+   If there are changes, ask whether to stash them or abort the release process:
+   - To stash changes:
+     ```
+     git stash
+     ```
+   - To abort the release process, resolve or commit your changes before proceeding.
+
+2. **Install dependencies and run the test suite:**  
+   ```
+   bundle install
+   ```
+   If a new lock file was created, then commit it.
+3. Run the test suite to make sure it is passing
+   `bundle exec rspec`
+
+---
+
+## Automatic Steps
+
+When preparing a release, follow these steps:
+
+1. **Identify the current version**  on in `lib/codebeacon/tracer/version.rb` (e.g., `0.2.1`).
+
+2. **Determine changes since the last release:**  
+   ```
+   git log v0.2.1..HEAD --pretty=format:"%s" --no-merges
+   ```
+   Review the commit messages to identify:
+   - New features (for "Added" section)
+   - Bug fixes (for "Fixed" section)
+   - Changes to existing functionality (for "Changed" section)
+   - Deprecated or removed features (for "Deprecated" or "Removed" sections)
+
+3. **Increment to the next appropriate SemVer version**  
+   - Update the version in `lib/codebeacon/tracer/version.rb` for a patch.
+   - Any other files referencing the version, if applicable
+
+4. **Update CHANGELOG.md**  
+   Add a new entry at the top based on your git log review:
+   ```md
+   ## [0.2.2] - YYYY-MM-DD
+
+   ### Added
+   - New feature X
+
+   ### Fixed
+   - Bug fixes and minor improvements
+
+   ### Changed
+   - Updated dependency Y
+   ```
+   
+5. **Build the gem:**  
+   ```
+   gem build codebeacon-tracer.gemspec
+   ```
+
+6. **Wait for approval**
+   - Allow the changelog and any other changes to be approved before proceeding.
+
+7. **Commit the changes:**  
+   ```
+   git add lib/codebeacon/tracer/version.rb CHANGELOG.md
+   git commit -m "Bump version to 0.2.2"
+   ```
+
+8. **Create a git tag for the release:**  
+   ```
+   git tag -a v0.2.2 -m "Version 0.2.2"
+   ```
+
+---
+
+## Manual Testing (Optional)
+
+After completing the automatic steps, you may want to test the gem locally before publishing:
+
+```
+## Local Testing (Optional)
+
+Would you like to install and test the gem locally before publishing?
+
+If yes, follow these steps:
+
+1. Install the built gem:
+   ```
+   gem install ./codebeacon-tracer-0.2.2.gem
+   ```
+
+2. Use the gem in a test project or IRB to verify functionality.
+
+3. When testing is complete, uninstall the local version if needed:
+   ```
+   gem uninstall codebeacon-tracer
+   ```
+```
+
+---
+
+## Publishing Instructions
+
+After manual testing is complete (or if you choose to skip it), follow these publishing instructions:
+
+```
+## Publishing the Gem
+
+Would you like to proceed with publishing the gem?
+
+1. Push commits and tags to GitHub:
+   ```
+   git push origin main
+   git push origin v0.2.2
+   ```
+
+2. Publish to RubyGems:
+   ```
+   gem push codebeacon-tracer-0.2.2.gem
+   ```
+   Note: This requires RubyGems.org credentials with publishing permissions.
+```
+
+---
+
+## Post-Release Steps
+
+After publishing:
+
+1. **Create a GitHub release:**
+   - Go to: https://github.com/CodeBeaconIO/codebeacon_tracer/releases/new
+   - Select the tag `v0.2.2`
+   - Use the version number as the title
+   - Copy the changelog entry for this version into the description
+   - Upload the `.gem` file as an asset (optional)
+   - Publish the release
+
+2. **Verify on RubyGems:**
+   - Check that the new version appears: https://rubygems.org/gems/codebeacon-tracer
+   - Verify the description and changelog are correctly displayed
+
+---
+
+## For Future Releases
+
+For reference, when starting the next release cycle, this command shows changes since the last tagged release:
+
+```
+git log $(git describe --tags --abbrev=0)..HEAD --pretty=format:"%s" --no-merges
+``` 
