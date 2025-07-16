@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2024-12-30
+
+### Added
+- Enhanced metadata
+- Ability to disable trace from config file
+- Ability to skip tracing via vscode filters
+
+### Fixed
+- script tracing path mismatch was preventing any methods from getting traced
+
+### Changed
+- Renamed bin/analyze to codebeacon and added to gemspec executables
+
 ## [0.1.0] - 2024-01-12
 
 ### Added
