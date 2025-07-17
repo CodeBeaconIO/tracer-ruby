@@ -1,0 +1,267 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# General Rules
+
+## Implementation Best Practices
+
+### 0 — Purpose  
+
+These rules ensure maintainability, safety, and developer velocity. 
+**MUST** rules are enforced by CI; **SHOULD** rules are strongly recommended.
+
+---
+
+### 1 — Before Coding
+
+- **BP-1 (MUST)** Ask the user clarifying questions.
+- **BP-2 (SHOULD)** Draft and confirm an approach for complex work.  
+- **BP-3 (SHOULD)** If ≥ 2 approaches exist, list clear pros and cons.
+
+---
+
+### 2 — While Coding
+
+- **C-1 (MUST)** Follow TDD: scaffold stub -> write failing test -> implement.
+- **C-2 (MUST)** Name methods with existing domain vocabulary for consistency.  
+- **C-3 (SHOULD NOT)** Introduce classes when simple methods suffice.  
+- **C-4 (SHOULD)** Prefer simple, composable, testable methods.
+- **C-5 (MUST)** Use double quotes for string literals (as per project RuboCop config).
+- **C-6 (MUST)** Use `frozen_string_literal: true` at the top of all Ruby files.
+- **C-7 (SHOULD NOT)** Add comments except for critical caveats; rely on self‑explanatory code.
+- **C-8 (SHOULD)** Follow Ruby naming conventions: snake_case for methods/variables, CamelCase for classes/modules.
+- **C-9 (SHOULD NOT)** Extract a new method unless it will be reused elsewhere, is the only way to unit-test otherwise untestable logic, or drastically improves readability of an opaque block.
+- **C-10 (MUST)** Keep method length under 20 lines (as per RuboCop config).
+- **C-11 (MUST)** Keep line length under 120 characters (as per RuboCop config).
+
+---
+
+### 3 — Testing
+
+- **T-1 (MUST)** Use RSpec for all testing with descriptive test names.
+- **T-2 (MUST)** Place spec files in `spec/` directory with `_spec.rb` suffix.
+- **T-3 (MUST)** Use `let` for setting up test data, avoid instance variables in tests.
+- **T-4 (SHOULD)** Prefer integration tests over heavy mocking when testing complex interactions.  
+- **T-5 (SHOULD)** Unit-test complex algorithms thoroughly.
+- **T-6 (SHOULD)** Test the entire structure in one expectation if possible:
+  ```ruby
+  expect(result).to eq([expected_value]) # Good
+
+  expect(result.length).to eq(1)          # Bad
+  expect(result.first).to eq(expected_value) # Bad
+  ```
+- **T-7 (MUST)** Follow AAA pattern (Arrange, Act, Assert) in test structure.
+- **T-8 (MUST)** Use proper RSpec matchers: `be_truthy`, `be_falsy`, `eq`, `match`, etc.
+- **T-9 (SHOULD)** Use `subject` when testing class behavior, `described_class` when referencing the class under test.
+
+---
+
+### 4 — Ruby Gem Development
+
+- **G-1 (MUST)** Define proper gem dependencies in `.gemspec` file.
+- **G-2 (MUST)** Use semantic versioning for gem releases.
+- **G-3 (MUST)** Maintain backwards compatibility unless releasing major version.
+- **G-4 (SHOULD)** Support Ruby versions >= 2.6 (as per current config).
+- **G-5 (MUST)** Include proper gem metadata (homepage, source_code_uri, changelog_uri).
+
+---
+
+### 5 — Code Organization
+
+- **O-1 (MUST)** Follow Ruby gem structure:
+  - `lib/` - Main gem code
+  - `lib/gem_name/` - Gem-specific modules  
+  - `spec/` - RSpec tests
+  - `bin/` - Executable scripts
+- **O-2 (MUST)** Use proper Ruby module nesting for namespacing.
+- **O-3 (SHOULD)** Keep classes focused on single responsibility.
+- **O-4 (MUST)** Use `require_relative` for internal dependencies, `require` for external gems.
+
+---
+
+### 6 — Tooling Gates
+
+- **TG-1 (MUST)** `bundle exec rspec` passes for all specs.  
+- **TG-2 (MUST)** `bundle exec rubocop` passes with no offenses.  
+- **TG-3 (SHOULD)** `bundle exec standardrb` passes if using Standard gem.
+- **TG-4 (SHOULD)** `bundle exec yard` generates documentation without warnings.
+
+---
+
+### 7 - Git
+
+- **GH-1 (MUST)** Use Conventional Commits format when writing commit messages: https://www.conventionalcommits.org/en/v1.0.0
+- **GH-2 (SHOULD NOT)** Refer to Claude or Anthropic in commit messages.
+
+---
+
+### 8 - Documentation
+
+- **D-1 (SHOULD)** Use YARD documentation format for public methods.
+- **D-2 (MUST)** Include clear README with installation and usage examples.
+- **D-3 (SHOULD)** Document complex algorithms and data structures.
+- **D-4 (MUST)** Keep CHANGELOG.md updated for releases.
+
+---
+
+## Writing Methods Best Practices
+
+When evaluating whether a method you implemented is good or not, use this checklist:
+
+1. Can you read the method and HONESTLY easily follow what it's doing? If yes, then stop here.
+2. Does the method have very high cyclomatic complexity? (number of independent paths, or, in a lot of cases, number of nesting of if-else as a proxy). If it does, then it's probably sketchy.
+3. Are there any common data structures and algorithms that would make this method much easier to follow and more robust? Parsers, trees, stacks / queues, etc.
+4. Are there any unused parameters in the method?
+5. Is the method easily testable without mocking core features? If not, can this method be tested as part of an integration test?
+6. Does it have any hidden untested dependencies or any values that can be factored out into the arguments instead? Only care about non-trivial dependencies that can actually change or affect the method.
+7. Brainstorm 3 better method names and see if the current name is the best, consistent with rest of codebase.
+8. Does the method follow Ruby naming conventions (snake_case)?
+
+IMPORTANT: you SHOULD NOT refactor out a separate method unless there is a compelling need, such as:
+  - the refactored method is used in more than one place
+  - the refactored method is easily unit testable while the original method is not AND you can't test it any other way
+  - the original method is extremely hard to follow and you resort to putting comments everywhere just to explain it
+
+## Writing Tests Best Practices
+
+When evaluating whether a test you've implemented is good or not, use this checklist:
+
+1. SHOULD parameterize inputs; never embed unexplained literals such as 42 or "foo" directly in the test.
+2. SHOULD NOT add a test unless it can fail for a real defect. Trivial assertions (e.g., expect(2).to eq(2)) are forbidden.
+3. SHOULD ensure the test description states exactly what the final expectation verifies. If the wording and assertion don't align, rename or rewrite.
+4. SHOULD compare results to independent, pre-computed expectations or to properties of the domain, never to the method's output re-used as the oracle.
+5. SHOULD follow the same lint, type-safety, and style rules as production code (RuboCop, Ruby standards).
+6. SHOULD express invariants or axioms (e.g., commutativity, idempotence, round-trip) rather than single hard-coded cases whenever practical.
+7. Unit tests for a method should be grouped under `describe '#method_name'` or `describe '.class_method_name'`.
+8. Use proper RSpec syntax: `let`, `subject`, `described_class`, `context`, `it`.
+9. ALWAYS use strong assertions over weaker ones e.g. `expect(x).to eq(1)` instead of `expect(x).to be > 0`.
+10. SHOULD test edge cases, realistic input, unexpected input, and value boundaries.
+11. SHOULD NOT test conditions that are caught by Ruby's type system or basic syntax.
+12. MUST use RSpec with proper mocking: `double`, `allow`, `expect().to receive()`.
+13. MUST follow AAA pattern (Arrange, Act, Assert) in test structure.
+14. Use `before` and `after` hooks appropriately for setup and teardown.
+
+## Code Organization
+
+### **Core Library Structure**
+- `lib/` - Main gem source code
+  - `lib/codebeacon-tracer.rb` - Main entry point and gem loading
+  - `lib/codebeacon/tracer/` - Core tracer modules
+    - `lib/codebeacon/tracer/version.rb` - Version definition
+    - `lib/codebeacon/tracer/src/` - Primary source code
+      - `data/` - Data layer components
+        - `*_mapper.rb` - Data mapping classes
+      - `models/` - Domain models: tree and node
+      - `rails/` - Rails integration
+
+### **Testing Structure**
+- `spec/` - RSpec test files organized by source structure
+  - `spec_helper.rb` - Test configuration and setup
+  - `data/` - Data layer tests (mirrors `lib/*/data/`)
+  - `models/` - Model tests (mirrors `lib/*/models/`)
+  - `bin/` - Executable script tests
+  - `traces/` - Specific tracing behavior tests
+  - `support/` - Test support utilities
+  - `system/` - System-level integration tests
+  - `tmp/` - Temporary test artifacts
+
+## Snippets
+
+Remember the following shortcuts which the user may invoke at any time.
+
+### QNEW
+
+When I type "qnew", this means:
+
+```
+Understand all BEST PRACTICES listed in the general rule.
+Your code SHOULD ALWAYS follow these best practices.
+```
+
+### QPLAN
+When I type "qplan", this means:
+```
+Analyze similar parts of the codebase and determine whether your plan:
+- is consistent with rest of codebase
+- introduces minimal changes
+- reuses existing code
+```
+
+## QCODE
+
+When I type "qcode", this means:
+
+```
+Implement your plan and make sure your new tests pass.
+Always run tests to make sure you didn't break anything else.
+Always run `bundle exec rubocop` on the newly created files to ensure standard formatting.
+Always run `bundle exec rspec` to make sure all tests pass.
+```
+
+### QCHECK
+
+When I type "qcheck", this means:
+
+```
+You are a SKEPTICAL senior software engineer.
+Perform this analysis for every MAJOR code change you introduced (skip minor changes):
+
+1. Writing Methods Best Practices checklist.
+2. Writing Tests Best Practices checklist.
+3. Implementation Best Practices checklist.
+```
+
+### QCHECKF
+
+When I type "qcheckf", this means:
+
+```
+You are a SKEPTICAL senior software engineer.
+Perform this analysis for every MAJOR method you added or edited (skip minor changes):
+
+1. Writing Methods Best Practices checklist.
+```
+
+### QCHECKT
+
+When I type "qcheckt", this means:
+
+```
+You are a SKEPTICAL senior software engineer.
+Perform this analysis for every MAJOR test you added or edited (skip minor changes):
+
+1. Writing Tests Best Practices checklist.
+```
+
+### QUX
+
+When I type "qux", this means:
+
+```
+Imagine you are a human UX tester of the feature you implemented. 
+Output a comprehensive list of scenarios you would test, sorted by highest priority.
+```
+
+### QGIT
+
+When I type "qgit", this means:
+
+```
+Add all changes to staging, create a commit, and push to remote.
+
+Follow this checklist for writing your commit message:
+- SHOULD use Conventional Commits format: https://www.conventionalcommits.org/en/v1.0.0
+- SHOULD NOT refer to Claude or Anthropic in the commit message.
+- SHOULD structure commit message as follows:
+<type>[optional scope]: <description>
+[optional body]
+[optional footer(s)]
+- commit SHOULD contain the following structural elements to communicate intent: 
+fix: a commit of the type fix patches a bug in your codebase (this correlates with PATCH in Semantic Versioning).
+feat: a commit of the type feat introduces a new feature to the codebase (this correlates with MINOR in Semantic Versioning).
+BREAKING CHANGE: a commit that has a footer BREAKING CHANGE:, or appends a ! after the type/scope, introduces a breaking API change (correlating with MAJOR in Semantic Versioning). A BREAKING CHANGE can be part of commits of any type.
+types other than fix: and feat: are allowed, for example @commitlint/config-conventional (based on the Angular convention) recommends build:, chore:, ci:, docs:, style:, refactor:, perf:, test:, and others.
+footers other than BREAKING CHANGE: <description> may be provided and follow a convention similar to git trailer format.
+```
