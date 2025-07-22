@@ -8,20 +8,20 @@ module Codebeacon
         @db = database
       end
 
-      def insert(file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_value)
+      def insert(file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value)
         @db.execute(<<-SQL, 
           INSERT INTO treenodes 
           (
               file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
-              gemEntry, parent_id, block, node_source_id, return_value
+              gemEntry, parent_id, block, node_source_id, return_type, return_value
           )
           VALUES 
           (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
         file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
-        gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_value)
+        gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value)
         
         @db.last_insert_row_id
       end
@@ -43,6 +43,7 @@ module Codebeacon
             parent_id INTEGER,
             block INTEGER,
             node_source_id INTEGER,
+            return_type TEXT,
             return_value TEXT,
             FOREIGN KEY (parent_id) REFERENCES treenodes(id),
             FOREIGN KEY (node_source_id) REFERENCES node_sources(id)

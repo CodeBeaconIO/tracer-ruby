@@ -28,11 +28,12 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       parent_id = nil
       block = false
       node_source_id = 1
+      return_type = "String"
       return_value = "test_return_value"
 
       node_id = @mapper.insert(
         file, line, method, tp_class, tp_defined_class, tp_class_name, 
-        self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_value
+        self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value
       )
 
       expect(node_id).to be_a(Integer)
@@ -52,18 +53,19 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       expect(result[11]).to be_nil # parent_id
       expect(result[12]).to eq(0) # block as integer
       expect(result[13]).to eq(node_source_id)
-      expect(result[14]).to eq(return_value)
+      expect(result[14]).to eq(return_type)
+      expect(result[15]).to eq(return_value)
     end
 
     it 'inserts a tree node with a parent' do
       parent_id = @mapper.insert(
         "parent.rb", 1, "parent_method", "ParentClass", "ParentDefinedClass", 
-        "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, nil
+        "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, "Integer", nil
       )
 
       child_id = @mapper.insert(
         "child.rb", 2, "child_method", "ChildClass", "ChildDefinedClass", 
-        "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, nil
+        "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, "String", "result"
       )
 
       result = @db.execute("SELECT parent_id FROM treenodes WHERE id = ?", child_id).first
@@ -84,7 +86,7 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       expected_columns = [
         "id", "file", "line", "method", "tp_class", "tp_defined_class", 
         "tp_class_name", "self_type", "depth", "caller", "gemEntry", 
-        "parent_id", "block", "node_source_id", "return_value"
+        "parent_id", "block", "node_source_id", "return_type", "return_value"
       ]
       
       expected_columns.each do |column|

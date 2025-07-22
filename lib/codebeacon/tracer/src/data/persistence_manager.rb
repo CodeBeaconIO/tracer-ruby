@@ -1,26 +1,12 @@
 require_relative 'tree_node_mapper'
 require_relative 'node_source_mapper'
 require_relative 'metadata_mapper'
+require_relative 'type_detector'
+require_relative 'safe_serializer'
 
 module Codebeacon
   module Tracer
     class PersistenceManager
-
-      def self.marshal(name, value, tree_node)
-        begin
-          return value.inspect[0..Codebeacon::Tracer.config.max_value_length]
-        rescue => e
-          begin
-            if Codebeacon::Tracer.config.debug?
-              Codebeacon::Tracer.logger.warn "Marshal inspect failure - attempting to_s fallback for: \"#{name}\", located at: \"#{tree_node.file}:#{tree_node.line}\"\nerror message: \"#{e.message}\", error_location: \"#{e.backtrace[0]}\""
-            end
-            return value.to_s[0..Codebeacon::Tracer.config.max_value_length]
-          rescue => e
-            Codebeacon::Tracer.logger.error "Marshal failure for: \"#{name}\", located at: \"#{tree_node.file}:#{tree_node.line}\"\nerror message: \"#{e.message}\", error_location: \"#{e.backtrace[0]}\""
-            return "--Codebeacon::Tracer ERROR-- could not marshall value. See logs."
-          end
-        end
-      end
 
       def initialize(database)
         @database = database
@@ -80,7 +66,8 @@ module Codebeacon
             parent_id,
             tree_node.block,
             tree_node.node_source&.id,
-            _return_value(tree_node)
+            return_type(tree_node),
+            return_value(tree_node)
           )
 
           unless tree_node.depth_truncated?
@@ -95,12 +82,14 @@ module Codebeacon
         end
       end
 
-      def _return_value(node)
-        if node.method == :initialize
-          return nil
-        else
-          PersistenceManager.marshal(node.method, node.return_value, node)
-        end
+      private def return_type(node)
+        return nil if node.method == :initialize
+        node.return_value.class.name
+      end
+
+      private def return_value(node)
+        return nil if node.method == :initialize
+        SafeSerializer.serialize(node.return_value, Codebeacon::Tracer.config.max_value_length)
       end
     end
   end

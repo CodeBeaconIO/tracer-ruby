@@ -62,26 +62,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
     end
   end
 
-  describe '.marshal' do
-    it 'truncates long values' do
-      long_string = "a" * 2000
-      tree_node = Codebeacon::Tracer::TreeNode.new
-      
-      result = Codebeacon::Tracer::PersistenceManager.marshal("test", long_string, tree_node)
-      
-      expect(result.length).to be <= Codebeacon::Tracer.config.max_value_length + 1
-    end
-    
-    it 'handles non-string values' do
-      value = { key: "value" }
-      tree_node = Codebeacon::Tracer::TreeNode.new
-      
-      result = Codebeacon::Tracer::PersistenceManager.marshal("test", value, tree_node)
-      
-      expect(result).to include("key")
-      expect(result).to include("value")
-    end
-  end
+
   
   describe '#_save_tree' do
     it 'handles Symbol values correctly' do
@@ -116,11 +97,31 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
         anything,
         anything,
         anything,
+        anything,
         anything
       )
       
       # Call the method
       persistence_manager.send(:_save_tree, tree_node)
+    end
+
+    it 'handles basic tree node saving' do
+      # Create a simple tree node
+      tree_node = Codebeacon::Tracer::TreeNode.new(
+        file: "test_file.rb",
+        line: 10,
+        method: "test_method",
+        self_type: "Class"
+      )
+      
+      # Save the tree node
+      @persistence_manager.save_tree(tree_node)
+      
+      # Check that it was saved
+      result = @db.execute("SELECT * FROM treenodes LIMIT 1").first
+      expect(result).not_to be_nil
+      expect(result["method"]).to eq("test_method")
+      expect(result["self_type"]).to eq("Class")
     end
   end
 end

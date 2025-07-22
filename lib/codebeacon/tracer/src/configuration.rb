@@ -14,6 +14,7 @@ module Codebeacon
       RETURN_VAL_MAX_LENGTH = 1000
       MAX_CALL_COUNT = 100000000
       MAX_DEPTH = 99999
+      SERIALIZATION_TIMEOUT_MS = 10
 
       def initialize()
         @query = ""
@@ -233,6 +234,10 @@ module Codebeacon
 
       def max_depth
         MAX_DEPTH
+      end
+
+      def serialization_timeout_ms
+        SERIALIZATION_TIMEOUT_MS
       end
 
       def logger
