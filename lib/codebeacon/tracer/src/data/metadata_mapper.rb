@@ -19,7 +19,8 @@ module Codebeacon
             start_time TEXT,
             end_time TEXT,
             duration_ms REAL,
-            trigger_type TEXT
+            trigger_type TEXT,
+            language TEXT
           );
         SQL
       end
@@ -34,9 +35,9 @@ module Codebeacon
           INSERT INTO metadata (
             name, description, caller_file, caller_method, caller_line,
             caller_class, caller_defined_class, start_time, end_time,
-            duration_ms, trigger_type
+            duration_ms, trigger_type, language
           ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
           metadata_hash[:name],
@@ -49,7 +50,8 @@ module Codebeacon
           metadata_hash[:start_time]&.iso8601,
           metadata_hash[:end_time]&.iso8601,
           metadata_hash[:duration_ms],
-          metadata_hash[:trigger_type]
+          metadata_hash[:trigger_type],
+          metadata_hash[:language]
         )
       end
     end

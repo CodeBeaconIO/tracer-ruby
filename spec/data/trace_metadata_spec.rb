@@ -8,6 +8,7 @@ RSpec.describe Codebeacon::Tracer::TraceMetadata do
       expect(metadata.name).to eq("test_trace")
       expect(metadata.description).to eq("test description")
       expect(metadata.trigger_type).to eq("test")
+      expect(metadata.language).to eq("ruby")
     end
 
     it 'captures caller information when provided' do
@@ -17,6 +18,7 @@ RSpec.describe Codebeacon::Tracer::TraceMetadata do
       expect(metadata.caller_file).to include('trace_metadata_spec.rb')
       expect(metadata.caller_line).to be > 0
       expect(metadata.caller_method).to be_a(String)
+      expect(metadata.language).to eq("ruby")
     end
 
     it 'handles nil caller location gracefully' do
@@ -25,6 +27,7 @@ RSpec.describe Codebeacon::Tracer::TraceMetadata do
       expect(metadata.caller_file).to be_nil
       expect(metadata.caller_line).to be_nil
       expect(metadata.caller_method).to be_nil
+      expect(metadata.language).to eq("ruby")
     end
 
     it 'allows all nil values' do
@@ -33,6 +36,13 @@ RSpec.describe Codebeacon::Tracer::TraceMetadata do
       expect(metadata.name).to be_nil
       expect(metadata.description).to be_nil
       expect(metadata.trigger_type).to eq("test")
+      expect(metadata.language).to eq("ruby")
+    end
+
+    it 'sets language to ruby by default' do
+      metadata = Codebeacon::Tracer::TraceMetadata.new
+      
+      expect(metadata.language).to eq("ruby")
     end
   end
 
@@ -60,8 +70,16 @@ RSpec.describe Codebeacon::Tracer::TraceMetadata do
       expect(hash).to include(
         :name, :description, :caller_file, :caller_method, :caller_line,
         :caller_class, :caller_defined_class, :start_time, :end_time,
-        :duration_ms, :trigger_type
+        :duration_ms, :trigger_type, :language
       )
+    end
+
+    it 'includes language field in hash' do
+      metadata = Codebeacon::Tracer::TraceMetadata.new(name: "language_test", trigger_type: "test")
+      
+      hash = metadata.to_hash
+      
+      expect(hash[:language]).to eq("ruby")
     end
   end
 end 
