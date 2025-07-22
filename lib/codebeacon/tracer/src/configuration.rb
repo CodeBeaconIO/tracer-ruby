@@ -69,7 +69,7 @@ module Codebeacon
       end
 
       def data_dir
-        ".code-beacon"
+        File.join(root_path, ".code-beacon")
       end
 
       def db_path
@@ -115,7 +115,7 @@ module Codebeacon
       end
 
       def root_path
-        @root_path ||= defined?(Rails) ? Rails.root.to_s : Dir.pwd
+        @root_path ||= @config_root_path || (defined?(Rails) ? Rails.root.to_s : Dir.pwd)
       end
 
       def rubylib_path
@@ -145,7 +145,13 @@ module Codebeacon
 
       def reload_tracer_config
         @trace_enabled = load_tracer_config_enabled
+        @config_root_path = load_tracer_config_root_path
         @recording_meta_exclude_patterns = nil  # Force reload of exclusion patterns
+      end
+
+      def reload_main_config
+        @root_path = nil  # Force reload of root_path
+        load_main_config
       end
 
       def recording_meta_exclude_patterns
@@ -300,6 +306,15 @@ module Codebeacon
       rescue => e
         logger.warn("Error loading tracer config: #{e.message}")
         true
+      end
+
+      def load_tracer_config_root_path
+        if File.exist?(tracer_config_path)
+          config_data = YAML.load_file(tracer_config_path)
+          @config_root_path = config_data['root_path'] if config_data['root_path']
+        end
+      rescue => e
+        logger.warn("Error loading tracer config root_path: #{e.message}")
       end
     end
   end
