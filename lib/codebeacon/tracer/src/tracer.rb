@@ -73,7 +73,7 @@ module Codebeacon
 
       def trace_call
         trace(:call) do |tp|
-          NodeBuilder.trace_method_call(call_tree, tp, Kernel.caller[2..])
+          NodeBuilder.trace_method_call(call_tree, tp, "")
         ensure
           @progress_logger.increment()
         end
@@ -81,7 +81,7 @@ module Codebeacon
 
       def trace_b_call
         trace(:b_call) do |tp|
-          NodeBuilder.trace_block_call(call_tree, tp, Kernel.caller[2..])
+          NodeBuilder.trace_block_call(call_tree, tp, "")
         ensure
           @progress_logger.increment()
         end
@@ -101,24 +101,16 @@ module Codebeacon
 
       def trace(type)
         TracePoint.new(type) do |tp|
-          paths = [tp.path]
-          # capture calls and returns to skipped paths from non skipped paths. All I need is the return value to display in recorded files, but the code doesn't yet support this without tracing the entire call and return.
-          if [:call, :b_call, :return, :b_return].include?(type)
-            paths << Kernel.caller(1..1)[0]
-          end
-          paths.uniq!
-          next if skip_methods?(paths)
+          next if skip_methods?(tp.path)
           yield tp
         rescue => e
           Codebeacon::Tracer.logger.error("TracePoint(#{type}) #{tp.path} #{e.message}")
         end
       end
 
-      def skip_methods?(paths)
-        paths.all? do |path|
-          path.nil? || Codebeacon::Tracer.config.exclude_paths.any?{ |exclude_path| path.start_with?(exclude_path) } ||
-            Codebeacon::Tracer.config.local_methods_only? && !path.start_with?(Codebeacon::Tracer.config.root_path)
-        end
+      def skip_methods?(path)
+        path.nil? || Codebeacon::Tracer.config.exclude_paths.any?{ |exclude_path| path.start_with?(exclude_path) } ||
+          Codebeacon::Tracer.config.local_methods_only? && !path.start_with?(Codebeacon::Tracer.config.root_path)
       end
     end
   end
