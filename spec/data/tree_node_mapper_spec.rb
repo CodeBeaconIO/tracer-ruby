@@ -17,6 +17,7 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
     it 'inserts a tree node into the database' do
       file = "test_file.rb"
       line = 10
+      called_method = "test_called_method"
       method = "test_method"
       tp_class = "TestClass"
       tp_defined_class = "TestDefinedClass"
@@ -32,7 +33,7 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       return_value = "test_return_value"
 
       node_id = @mapper.insert(
-        file, line, method, tp_class, tp_defined_class, tp_class_name, 
+        file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, 
         self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value
       )
 
@@ -42,34 +43,50 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       expect(result).not_to be_nil
       expect(result[1]).to eq(file)
       expect(result[2]).to eq(line)
-      expect(result[3]).to eq(method)
-      expect(result[4]).to eq(tp_class)
-      expect(result[5]).to eq(tp_defined_class)
-      expect(result[6]).to eq(tp_class_name)
-      expect(result[7]).to eq(self_type)
-      expect(result[8]).to eq(depth)
-      expect(result[9]).to eq(caller)
-      expect(result[10]).to eq(1) # gem_entry as integer
-      expect(result[11]).to be_nil # parent_id
-      expect(result[12]).to eq(0) # block as integer
-      expect(result[13]).to eq(node_source_id)
-      expect(result[14]).to eq(return_type)
-      expect(result[15]).to eq(return_value)
+      expect(result[3]).to eq(called_method)
+      expect(result[4]).to eq(method)
+      expect(result[5]).to eq(tp_class)
+      expect(result[6]).to eq(tp_defined_class)
+      expect(result[7]).to eq(tp_class_name)
+      expect(result[8]).to eq(self_type)
+      expect(result[9]).to eq(depth)
+      expect(result[10]).to eq(caller)
+      expect(result[11]).to eq(1) # gem_entry as integer
+      expect(result[12]).to be_nil # parent_id
+      expect(result[13]).to eq(0) # block as integer
+      expect(result[14]).to eq(node_source_id)
+      expect(result[15]).to eq(return_type)
+      expect(result[16]).to eq(return_value)
     end
 
     it 'inserts a tree node with a parent' do
       parent_id = @mapper.insert(
-        "parent.rb", 1, "parent_method", "ParentClass", "ParentDefinedClass", 
+        "parent.rb", 1, "parent_called_method", "parent_method", "ParentClass", "ParentDefinedClass", 
         "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, "Integer", nil
       )
 
       child_id = @mapper.insert(
-        "child.rb", 2, "child_method", "ChildClass", "ChildDefinedClass", 
+        "child.rb", 2, "child_called_method", "child_method", "ChildClass", "ChildDefinedClass", 
         "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, "String", "result"
       )
 
       result = @db.execute("SELECT parent_id FROM treenodes WHERE id = ?", child_id).first
       expect(result[0]).to eq(parent_id)
+    end
+
+    it 'inserts a tree node with a called_method' do
+      called_method_id = @mapper.insert(
+        "called_method.rb", 1, "called_method_called", "called_method_method", "CalledMethodClass", "CalledMethodDefinedClass", 
+        "CalledMethodClassName", "Object", 0, "called_method_caller", false, nil, false, nil, "Integer", nil
+      )
+
+      caller_id = @mapper.insert(
+        "caller.rb", 2, "caller_called_method", "caller_method", "CallerClass", "CallerDefinedClass", 
+        "CallerClassName", "Object", 1, "caller_caller", false, nil, false, nil, "String", "result"
+      )
+
+      result = @db.execute("SELECT called_method FROM treenodes WHERE id = ?", caller_id).first
+      expect(result[0]).to eq("caller_called_method")
     end
   end
 
@@ -84,7 +101,7 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       column_names = result.map { |col| col[1] }
       
       expected_columns = [
-        "id", "file", "line", "method", "tp_class", "tp_defined_class", 
+        "id", "file", "line", "called_method", "method", "tp_class", "tp_defined_class", 
         "tp_class_name", "self_type", "depth", "caller", "gemEntry", 
         "parent_id", "block", "node_source_id", "return_type", "return_value"
       ]
@@ -103,6 +120,11 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
 
     it 'creates the node_source_id index' do
       result = @db.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_treenode_node_source_id'")
+      expect(result).not_to be_empty
+    end
+
+    it 'creates the called_method index' do
+      result = @db.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_treenode_called_method'")
       expect(result).not_to be_empty
     end
   end

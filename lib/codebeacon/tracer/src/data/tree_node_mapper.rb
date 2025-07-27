@@ -8,19 +8,19 @@ module Codebeacon
         @db = database
       end
 
-      def insert(file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value)
+      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value)
         @db.execute(<<-SQL, 
           INSERT INTO treenodes 
           (
-              file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
+              file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
               gemEntry, parent_id, block, node_source_id, return_type, return_value
           )
           VALUES 
           (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
-        file, line, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
+        file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
         gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value)
         
         @db.last_insert_row_id
@@ -32,6 +32,7 @@ module Codebeacon
             id INTEGER PRIMARY KEY,
             file TEXT,
             line INTEGER,
+            called_method TEXT,
             method TEXT,
             tp_class TEXT,
             tp_defined_class TEXT,
@@ -55,6 +56,7 @@ module Codebeacon
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_parent_id ON treenodes(parent_id)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_node_source_id ON treenodes(node_source_id)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_file ON treenodes(file)")
+        database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_called_method ON treenodes(called_method)")
       end
     end
   end

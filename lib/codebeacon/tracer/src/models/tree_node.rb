@@ -31,9 +31,9 @@ module Codebeacon
       #   @children = []
       # end
 
-      attr_accessor :file, :line, :method, :object_id, :tp_class, :tp_defined_class, :tp_class_name, :self_type, :depth, :caller, :gem_entry, :children, :parent, :block, :locals, :return_value, :linevars, :node_source, :trace_status, :script, :backtrace_count, :backtrace_location, :script_binding, :script_self
+      attr_accessor :file, :line, :method, :object_id, :tp_class, :tp_defined_class, :tp_class_name, :self_type, :depth, :caller, :gem_entry, :children, :parent, :block, :locals, :return_value, :linevars, :node_source, :trace_status, :script, :backtrace_count, :backtrace_location, :script_binding, :script_self, :called_method
 
-      def initialize(file: nil, line: nil, object_id: nil, method: nil, tp_class: nil, tp_defined_class: nil, tp_class_name: nil, self_type: nil, depth: 0, caller: "", gem_entry: false, parent: nil, block: false, locals: [], return_value: nil, node_source: nil, script: false)
+      def initialize(file: nil, line: nil, object_id: nil, method: nil, tp_class: nil, tp_defined_class: nil, tp_class_name: nil, self_type: nil, depth: 0, caller: "", gem_entry: false, parent: nil, block: false, locals: [], return_value: nil, node_source: nil, script: false, called_method: nil)
         @file = file
         @line = line
         @method = method
@@ -58,6 +58,7 @@ module Codebeacon
         @backtrace_location = nil
         @script_binding = nil
         @script_self = nil
+        @called_method = called_method
       end
 
       def add_line(lineno, variables)

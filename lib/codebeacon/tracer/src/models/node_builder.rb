@@ -37,6 +37,10 @@ module Codebeacon
           current_context.line = tp.lineno
           current_context.object_id = tp.self.object_id
           current_context.method = tp.method_id
+          if tp.callee_id != tp.method_id
+            current_context.called_method = tp.callee_id
+          end
+
           klass = TPKlass.new(tp)
 
           current_context.tp_class = klass.tp_class.to_s

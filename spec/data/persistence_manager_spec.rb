@@ -86,6 +86,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
       expect(tree_node_mapper).to receive(:insert).with(
         tree_node.file,
         tree_node.line,
+        tree_node.called_method, # called_method parameter (can be nil)
         "test_method", # String, not Symbol
         anything,
         anything,
@@ -122,6 +123,26 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
       expect(result).not_to be_nil
       expect(result["method"]).to eq("test_method")
       expect(result["self_type"]).to eq("Class")
+    end
+
+    it 'handles tree node with called_method that differs from method' do
+      # Create a tree node where called_method differs from method
+      tree_node = Codebeacon::Tracer::TreeNode.new(
+        file: "test_file.rb",
+        line: 10,
+        method: "original_method",
+        called_method: "aliased_method",
+        self_type: "Class"
+      )
+      
+      # Save the tree node
+      @persistence_manager.save_tree(tree_node)
+      
+      # Check that both method and called_method were saved correctly
+      result = @db.execute("SELECT method, called_method FROM treenodes LIMIT 1").first
+      expect(result).not_to be_nil
+      expect(result["method"]).to eq("original_method")
+      expect(result["called_method"]).to eq("aliased_method")
     end
   end
 end

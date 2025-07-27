@@ -13,6 +13,16 @@ RSpec.describe Codebeacon::Tracer::TreeNode do
       expect(node.line).to eq(10)
       expect(node.method).to eq('example_method')
     end
+
+    it 'sets called_method correctly' do
+      node = Codebeacon::Tracer::TreeNode.new(called_method: "test_called_method")
+      expect(node.called_method).to eq("test_called_method")
+    end
+
+    it 'defaults called_method to nil' do
+      node = Codebeacon::Tracer::TreeNode.new
+      expect(node.called_method).to be_nil
+    end
   end
 
   describe '#add_line' do
