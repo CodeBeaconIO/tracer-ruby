@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-07-30
+
+### Added
+- Called method tracking for method aliases
+- Trace language specification in metadata
+- Configurable root_dir option
+
+### Fixed
+- Performance improvements by removing unnecessary expensive Kernel.caller calls
+
+### Changed
+- Simplified and limited duration tracking for return values
+
 ## [0.3.0] - 2024-12-30
 
 ### Added
