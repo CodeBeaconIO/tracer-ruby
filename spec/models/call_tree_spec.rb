@@ -3,6 +3,11 @@ require 'spec_helper'
 RSpec.describe Codebeacon::Tracer::CallTree do
   let(:call_tree) { Codebeacon::Tracer::CallTree.new(Thread.current) }
 
+  before do
+    # Reset thread ID counter for test isolation
+    Codebeacon::Tracer::CallTree.instance_variable_set(:@thread_id, 0)
+  end
+
   describe '#initialize' do
     it 'initializes with a root node' do
       expect(call_tree.root).to be_a(Codebeacon::Tracer::TreeNode)

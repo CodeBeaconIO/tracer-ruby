@@ -85,6 +85,7 @@ RSpec.describe "Called method integration" do
     allow(tp).to receive(:lineno).and_return(10)
     allow(tp).to receive(:method).and_return(:aliased_method)
     allow(tp).to receive(:method_id).and_return(:original_method)
+    allow(tp).to receive(:callee_id).and_return(:aliased_method)
     allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
     
     # Mock TPKlass
@@ -107,7 +108,7 @@ RSpec.describe "Called method integration" do
     # Check that called_method was set correctly
     node = call_tree.current_node
     expect(node.method).to eq(:original_method)
-    expect(node.called_method).to eq("aliased_method")
+    expect(node.called_method).to eq(:aliased_method) # NodeBuilder sets Symbol
     
     # Now test with a regular method (no alias)
     call_tree2 = Codebeacon::Tracer::CallTree.new(Thread.current)
@@ -116,6 +117,7 @@ RSpec.describe "Called method integration" do
     allow(tp2).to receive(:lineno).and_return(10)
     allow(tp2).to receive(:method).and_return(:regular_method)
     allow(tp2).to receive(:method_id).and_return(:regular_method)
+    allow(tp2).to receive(:callee_id).and_return(:regular_method)
     allow(tp2).to receive(:self).and_return(double("Object", object_id: 123))
     
     allow(Codebeacon::Tracer::TPKlass).to receive(:new).and_return(klass)

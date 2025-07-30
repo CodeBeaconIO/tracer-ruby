@@ -11,6 +11,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:lineno).and_return(10)
       allow(tp).to receive(:method).and_return(:aliased_method)
       allow(tp).to receive(:method_id).and_return(:original_method)
+      allow(tp).to receive(:callee_id).and_return(:aliased_method)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
       
       # Mock TPKlass
@@ -33,7 +34,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       # Check that called_method was set correctly
       node = call_tree.current_node
       expect(node.method).to eq(:original_method)
-      expect(node.called_method).to eq("aliased_method")
+      expect(node.called_method).to eq(:aliased_method) # NodeBuilder sets Symbol, not String
     end
 
     it 'does not set called_method when method name equals method_id' do
@@ -41,8 +42,9 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       tp = double("TracePoint")
       allow(tp).to receive(:path).and_return("/test/file.rb")
       allow(tp).to receive(:lineno).and_return(10)
-      allow(tp).to receive(:method).and_return(:same_method)
-      allow(tp).to receive(:method_id).and_return(:same_method)
+      allow(tp).to receive(:method).and_return(:regular_method)
+      allow(tp).to receive(:method_id).and_return(:regular_method)
+      allow(tp).to receive(:callee_id).and_return(:regular_method)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
       
       # Mock TPKlass
@@ -64,19 +66,20 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       
       # Check that called_method was not set
       node = call_tree.current_node
-      expect(node.method).to eq(:same_method)
+      expect(node.method).to eq(:regular_method)
       expect(node.called_method).to be_nil
     end
   end
 
   describe '.trace_block_call' do
     it 'sets called_method when method name differs from method_id for blocks' do
-      # Create a mock TracePoint where tp.method != tp.method_id
+      # Create a mock TracePoint where tp.method != tp.method_id (aliased block)
       tp = double("TracePoint")
       allow(tp).to receive(:path).and_return("/test/file.rb")
       allow(tp).to receive(:lineno).and_return(10)
-      allow(tp).to receive(:method).and_return(:aliased_block_method)
-      allow(tp).to receive(:method_id).and_return(:original_block_method)
+      allow(tp).to receive(:method).and_return(:aliased_block)
+      allow(tp).to receive(:method_id).and_return(:original_block)
+      allow(tp).to receive(:callee_id).and_return(:aliased_block)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
       
       # Mock TPKlass
@@ -98,8 +101,8 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       
       # Check that called_method was set correctly and block flag is set
       node = call_tree.current_node
-      expect(node.method).to eq(:original_block_method)
-      expect(node.called_method).to eq("aliased_block_method")
+      expect(node.method).to eq(:original_block) # Match the actual mock setup
+      expect(node.called_method).to eq(:aliased_block) # NodeBuilder sets Symbol, not String
       expect(node.block).to be true
     end
   end

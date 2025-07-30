@@ -55,7 +55,7 @@ module Codebeacon
           node_id = @tree_node_mapper.insert(
             tree_node.file,
             tree_node.line,
-            tree_node.called_method.to_s,
+            tree_node.called_method&.to_s, # Convert symbols to strings, keep nil as nil
             tree_node.method.to_s,
             tree_node.tp_class.to_s,
             tree_node.tp_defined_class.to_s,
