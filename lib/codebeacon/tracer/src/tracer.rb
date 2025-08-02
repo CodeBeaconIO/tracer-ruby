@@ -8,6 +8,7 @@ module Codebeacon
 
       def initialize(name: nil, description: nil, caller_location: nil, trigger_type: nil)
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("calls traced")
+        @skip_logger = Codebeacon::Tracer.logger.newProgressLogger("calls skipped")
         @traces = [trace_call, trace_b_call, trace_return, trace_b_return]
         @name = name
         @description = description
@@ -36,12 +37,14 @@ module Codebeacon
 
       def start()
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("calls traced")
+        @skip_logger = Codebeacon::Tracer.logger.newProgressLogger("calls skipped", 10000)
         start_traces
       end
 
       def stop()
         stop_traces
         @progress_logger.finish()
+        @skip_logger.finish()
         @metadata.finish_trace
       end
 
@@ -101,7 +104,10 @@ module Codebeacon
 
       def trace(type)
         TracePoint.new(type) do |tp|
-          next if skip_methods?(tp.path)
+          if skip_methods?(tp.path)
+            @skip_logger.increment()
+            next
+          end
           yield tp
         rescue => e
           Codebeacon::Tracer.logger.error("TracePoint(#{type}) #{tp.path} #{e.message}")
