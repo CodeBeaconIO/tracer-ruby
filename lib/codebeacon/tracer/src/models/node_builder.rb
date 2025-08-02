@@ -2,16 +2,30 @@ module Codebeacon
   module Tracer
     class NodeBuilder
       class << self
+        attr_accessor :absolute_path_cache, :node_source_cache
+
+        def initialize_caches
+          @absolute_path_cache ||= {}
+          @node_source_cache ||= {}
+        end
+
+        def clear_caches
+          @absolute_path_cache&.clear
+          @node_source_cache&.clear
+        end
+
         def backtrace_location_eql(loc1, loc2)
           loc1.absolute_path == loc2.absolute_path && loc1.lineno == loc2.lineno && loc1.label == loc2.label
         end
 
         def trace_method_call(call_tree, tp, tp_caller)
+          initialize_caches
           call_tree.add_call
           trace_call(call_tree, tp, tp_caller, :get_method_ast)
         end
 
         def trace_block_call(call_tree, tp, tp_caller)
+          initialize_caches
           current_context = call_tree.add_block_call
           current_context.block = true
           trace_call(call_tree, tp, tp_caller, :get_block_ast)
@@ -32,8 +46,11 @@ module Codebeacon
         private def trace_call(call_tree, tp, tp_caller, ast_get_method)
           current_context = call_tree.current_node
 
-          current_context.file = File.absolute_path(tp.path)
-          current_context.node_source = NodeSource.find(tp.path)
+          # Cache absolute path resolution
+          current_context.file = @absolute_path_cache[tp.path] ||= File.absolute_path(tp.path)
+          
+          # Cache NodeSource lookup
+          current_context.node_source = @node_source_cache[tp.path] ||= NodeSource.find(tp.path)
           current_context.line = tp.lineno
           current_context.object_id = tp.self.object_id
           current_context.method = tp.method_id

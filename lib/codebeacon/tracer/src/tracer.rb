@@ -53,6 +53,7 @@ module Codebeacon
 
       def cleanup()
         @tree_manager.cleanup
+        NodeBuilder.clear_caches
       end
 
       def start_traces
