@@ -12,6 +12,7 @@ module Codebeacon
         def clear_caches
           @absolute_path_cache&.clear
           @node_source_cache&.clear
+          TPKlass.clear_cache
         end
 
         def backtrace_location_eql(loc1, loc2)
@@ -58,11 +59,10 @@ module Codebeacon
             current_context.called_method = tp.callee_id
           end
 
-          klass = TPKlass.new(tp)
-
+          klass = TPKlass.for_tp(tp)
           current_context.tp_class = klass.tp_class.to_s
           current_context.tp_defined_class = klass.defined_class
-          current_context.tp_class_name = klass.tp_class_name
+          current_context.tp_class_name = klass.tp_class_name.to_s
           current_context.self_type = klass.type
           current_context.depth = call_tree.depth
 

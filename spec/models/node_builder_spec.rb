@@ -2,7 +2,7 @@ require 'spec_helper'
 
 RSpec.describe Codebeacon::Tracer::NodeBuilder do
   let(:call_tree) { Codebeacon::Tracer::CallTree.new(Thread.current) }
-
+  
   describe '.trace_method_call' do
     it 'sets called_method when method name differs from method_id' do
       # Create a mock TracePoint where tp.method != tp.method_id
@@ -13,6 +13,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:method_id).and_return(:original_method)
       allow(tp).to receive(:callee_id).and_return(:aliased_method)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
+      allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
       
       # Mock TPKlass
       klass = double("TPKlass")
@@ -20,7 +21,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(klass).to receive(:defined_class).and_return("TestDefinedClass")
       allow(klass).to receive(:tp_class_name).and_return("TestClassName")
       allow(klass).to receive(:type).and_return("Object")
-      allow(Codebeacon::Tracer::TPKlass).to receive(:new).and_return(klass)
+      allow(Codebeacon::Tracer::TPKlass).to receive(:for_tp).and_return(klass)
       
       # Mock NodeSource.find
       allow(Codebeacon::Tracer::NodeSource).to receive(:find).and_return(nil)
@@ -46,6 +47,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:method_id).and_return(:regular_method)
       allow(tp).to receive(:callee_id).and_return(:regular_method)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
+      allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
       
       # Mock TPKlass
       klass = double("TPKlass")
@@ -53,7 +55,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(klass).to receive(:defined_class).and_return("TestDefinedClass")
       allow(klass).to receive(:tp_class_name).and_return("TestClassName")
       allow(klass).to receive(:type).and_return("Object")
-      allow(Codebeacon::Tracer::TPKlass).to receive(:new).and_return(klass)
+      allow(Codebeacon::Tracer::TPKlass).to receive(:for_tp).and_return(klass)
       
       # Mock NodeSource.find
       allow(Codebeacon::Tracer::NodeSource).to receive(:find).and_return(nil)
@@ -81,6 +83,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:method_id).and_return(:original_block)
       allow(tp).to receive(:callee_id).and_return(:aliased_block)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
+      allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
       
       # Mock TPKlass
       klass = double("TPKlass")
@@ -88,7 +91,7 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(klass).to receive(:defined_class).and_return("TestDefinedClass")
       allow(klass).to receive(:tp_class_name).and_return("TestClassName")
       allow(klass).to receive(:type).and_return("Object")
-      allow(Codebeacon::Tracer::TPKlass).to receive(:new).and_return(klass)
+      allow(Codebeacon::Tracer::TPKlass).to receive(:for_tp).and_return(klass)
       
       # Mock NodeSource.find
       allow(Codebeacon::Tracer::NodeSource).to receive(:find).and_return(nil)
