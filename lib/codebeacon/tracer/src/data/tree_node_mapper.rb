@@ -1,29 +1,23 @@
-require 'sqlite3'
-require 'json'
+# frozen_string_literal: true
+
+require "sqlite3"
+require "json"
 
 module Codebeacon
   module Tracer
     class TreeNodeMapper
       def initialize(database)
         @db = database
+        prepare_statement
       end
 
       def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value)
-        @db.execute(<<-SQL, 
-          INSERT INTO treenodes 
-          (
-              file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
-              gemEntry, parent_id, block, node_source_id, return_type, return_value
-          )
-          VALUES 
-          (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-          )
-        SQL
-        file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, 
-        gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value)
-        
+        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value)
         @db.last_insert_row_id
+      end
+
+      def close_statement
+        @statement.close if @statement && !@statement.closed?
       end
 
       def self.create_table(database)
@@ -57,6 +51,23 @@ module Codebeacon
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_node_source_id ON treenodes(node_source_id)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_file ON treenodes(file)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_called_method ON treenodes(called_method)")
+      end
+
+      private
+
+      def prepare_statement
+        sql = <<-SQL
+          INSERT INTO treenodes
+          (
+              file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller,
+              gemEntry, parent_id, block, node_source_id, return_type, return_value
+          )
+          VALUES
+          (
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+          )
+        SQL
+        @statement = @db.prepare(sql)
       end
     end
   end
