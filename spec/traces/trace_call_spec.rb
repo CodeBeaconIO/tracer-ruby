@@ -12,6 +12,7 @@ RSpec.describe Codebeacon::Tracer do
   before do
     Codebeacon::Tracer::NodeSource.new('app', Codebeacon::Tracer.config.root_path)
     @trace_file = TraceFile.load!(file_contents)
+    Codebeacon::Tracer.config.load_main_config
     Codebeacon::Tracer.config.dry_run = true
     Codebeacon::Tracer.config.local_methods_only = true
     Codebeacon::Tracer.config.local_lines_only = true

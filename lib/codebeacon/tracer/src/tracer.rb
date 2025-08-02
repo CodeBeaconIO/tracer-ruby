@@ -1,5 +1,7 @@
-require_relative 'models/node_builder'
-require_relative 'models/thread_local_call_tree_manager'
+# frozen_string_literal: true
+
+require_relative "models/node_builder"
+require_relative "models/thread_local_call_tree_manager"
 
 module Codebeacon
   module Tracer
@@ -15,6 +17,7 @@ module Codebeacon
         @trace_id = SecureRandom.uuid
         @tree_manager = ThreadLocalCallTreeManager.new(@trace_id)
         @metadata = TraceMetadata.new(name:, description:, caller_location:, trigger_type:)
+        @skip_cache = {}
       end
 
       def name=(new_name)
@@ -115,8 +118,32 @@ module Codebeacon
       end
 
       def skip_methods?(path)
-        path.nil? || Codebeacon::Tracer.config.exclude_paths.any?{ |exclude_path| path.start_with?(exclude_path) } ||
-          Codebeacon::Tracer.config.local_methods_only? && !path.start_with?(Codebeacon::Tracer.config.root_path)
+        return true if path.nil?
+        
+        return @skip_cache[path] if @skip_cache.key?(path)
+
+        # Check if the path is in the exclude list.
+        # We need to check "relative" paths first because we need to exclude the special "<internal..." style paths.
+        # If we try to find the absolute path, it will prepend the root/cwd and will end up being traced
+        is_excluded = Codebeacon::Tracer.config.exclude_paths.any? do |exclude_path|
+          path.start_with?(exclude_path)
+        end
+        return @skip_cache[path] = true if is_excluded
+
+        # Check if the absolute path is in the exclude list.
+        # This is required when the traced program is run using a relative path
+        abs_path = File.absolute_path(path)
+        is_excluded = Codebeacon::Tracer.config.exclude_paths.any? do |exclude_path|
+          abs_path.start_with?(exclude_path)
+        end
+        return @skip_cache[path] = true if is_excluded
+
+        # Check if we are only tracing local methods and if the path is outside the project's root.
+        is_local_only = Codebeacon::Tracer.config.local_methods_only?
+        is_not_in_root = !abs_path.start_with?(Codebeacon::Tracer.config.root_path)
+        return @skip_cache[path] = true if is_local_only && is_not_in_root
+
+        @skip_cache[path] = false
       end
     end
   end

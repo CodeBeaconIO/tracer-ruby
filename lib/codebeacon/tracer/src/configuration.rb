@@ -90,7 +90,7 @@ module Codebeacon
       end
 
       def config_path
-        File.expand_path(File.join(lib_root, 'config.yml')) 
+        File.expand_path(File.join('config.yml')) 
       end
 
       def tracer_config_path

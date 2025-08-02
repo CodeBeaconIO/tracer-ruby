@@ -18,6 +18,7 @@ RSpec.describe Codebeacon::Tracer do
   before do
     @trace_file = TraceFile.new(file_contents)
     @trace_file.require_file
+    Codebeacon::Tracer.config.load_main_config
     Codebeacon::Tracer.config.dry_run = true
     Codebeacon::Tracer.config.local_methods_only = true
     Codebeacon::Tracer.config.local_lines_only = true
