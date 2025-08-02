@@ -8,6 +8,7 @@ require_relative 'support/cannot_inspect'
 require_relative 'support/cannot_to_s'
 
 Codebeacon::Tracer.config.debug = true
+Codebeacon::Tracer.config.sync_mode = true # Run persistence synchronously for tests
 
 RSpec.configure do |config|
   srand(config.seed)

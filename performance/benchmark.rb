@@ -71,6 +71,7 @@ puts "--------------------------------------------------\n"
 puts "--- Phase 2: Call Generation with Tracing Enabled ---"
 Codebeacon::Tracer.config.instance_variable_set(:@trace_enabled, true)
 Codebeacon::Tracer.config.instance_variable_set(:@dry_run, false)
+Codebeacon::Tracer.config.sync_mode = true # Force synchronous persistence for accurate benchmarking
 Codebeacon::Tracer.send(:setup)
 tracer = Codebeacon::Tracer::Tracer.new(name: "Benchmark", description: "Persistence Test")
 Codebeacon::Tracer.instance_variable_set(:@tracer, tracer)

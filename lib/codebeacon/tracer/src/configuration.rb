@@ -16,9 +16,13 @@ module Codebeacon
       MAX_DEPTH = 99999
       SERIALIZATION_TIMEOUT_MS = 10
 
+      attr_accessor :sync_mode
+      attr_reader :exclude_paths
+
       def initialize()
         @query = ""
         @exclude_paths = []
+        @sync_mode = false # Default to asynchronous persistence
         ensure_db_path
       end
 

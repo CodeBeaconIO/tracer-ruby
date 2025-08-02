@@ -32,6 +32,10 @@ module Codebeacon
         @config ||= Configuration.new
       end
 
+      def async_persistence_manager
+        @async_persistence_manager ||= AsyncPersistenceManager.new
+      end
+
       # Returns the current call tree
       # @return [CallTree] The current call tree
       def current_tree
@@ -129,18 +133,30 @@ module Codebeacon
           return
         end
 
+        if Codebeacon::Tracer.config.sync_mode
+          _perform_persistence(metadata, @tracer.tree_manager.trees, [@app_node, @gem_node, @rubylib_node], config)
+        else
+          async_persistence_manager.queue_task(
+            metadata: metadata,
+            trees: @tracer.tree_manager.trees,
+            node_sources: [@app_node, @gem_node, @rubylib_node],
+            config: config
+          )
+        end
+      end
+
+      private def _perform_persistence(metadata, trees, ordered_sources, config)
         begin
-          schema = DatabaseSchema.new
+          schema = DatabaseSchema.new(config)
           schema.create_tables
-          DatabaseSchema.trim_db_files
+          DatabaseSchema.trim_db_files(config)
           pm = PersistenceManager.new(schema.db)
-          ordered_sources = [ @app_node, @gem_node, @rubylib_node ]
           pm.save_metadata(metadata)
           pm.save_node_sources(ordered_sources)
-          pm.save_trees(@tracer.tree_manager.trees)
+          pm.save_trees(trees)
           schema.create_indexes
           schema.db.close
-          touch_refresh
+          touch_refresh(config)
         rescue => e
           Codebeacon::Tracer.logger.error("Error during persistence: #{e.message}")
           Codebeacon::Tracer.logger.error(e.backtrace.join("\n")) if Codebeacon::Tracer.config.debug?
@@ -152,14 +168,18 @@ module Codebeacon
         @tracer.cleanup
       end
 
-      private def touch_refresh
-        FileUtils.mkdir_p(Codebeacon::Tracer.config.tmp_dir) unless File.exist?(Codebeacon::Tracer.config.tmp_dir)
-        if File.exist?(Codebeacon::Tracer.config.refresh_path)
-          File.utime(Time.now, Time.now, Codebeacon::Tracer.config.refresh_path)
+      private def touch_refresh(config)
+        FileUtils.mkdir_p(config.tmp_dir) unless File.exist?(config.tmp_dir)
+        if File.exist?(config.refresh_path)
+          File.utime(Time.now, Time.now, config.refresh_path)
         else
-          File.open(Codebeacon::Tracer.config.refresh_path, 'w') {}
+          File.open(config.refresh_path, 'w') {}
         end
       end
     end
   end
+end
+
+at_exit do
+  Codebeacon::Tracer.async_persistence_manager.stop
 end
