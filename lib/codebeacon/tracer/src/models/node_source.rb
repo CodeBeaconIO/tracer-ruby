@@ -22,6 +22,7 @@ module Codebeacon
           source = self.instances.find { |ns| dir.to_s == ns.root_path }
           return source if source
         end
+        nil
       end
 
       def self.clear

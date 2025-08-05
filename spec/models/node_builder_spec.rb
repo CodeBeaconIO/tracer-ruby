@@ -3,6 +3,11 @@ require 'spec_helper'
 RSpec.describe Codebeacon::Tracer::NodeBuilder do
   let(:call_tree) { Codebeacon::Tracer::CallTree.new(Thread.current) }
   
+  before(:each) do
+    # Clear caches between tests to prevent mock object leakage
+    Codebeacon::Tracer::NodeBuilder.clear_caches
+  end
+
   describe '.trace_method_call' do
     it 'sets called_method when method name differs from method_id' do
       # Create a mock TracePoint where tp.method != tp.method_id

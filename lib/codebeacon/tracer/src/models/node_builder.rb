@@ -50,8 +50,12 @@ module Codebeacon
           # Cache absolute path resolution
           current_context.file = @absolute_path_cache[tp.path] ||= File.absolute_path(tp.path)
           
-          # Cache NodeSource lookup
-          current_context.node_source = @node_source_cache[tp.path] ||= NodeSource.find(tp.path)
+          # Cache NodeSource lookup (properly cache nil results)
+          if @node_source_cache.key?(tp.path)
+            current_context.node_source = @node_source_cache[tp.path]
+          else
+            current_context.node_source = @node_source_cache[tp.path] = NodeSource.find(tp.path)
+          end
           current_context.line = tp.lineno
           current_context.object_id = tp.self.object_id
           current_context.method = tp.method_id

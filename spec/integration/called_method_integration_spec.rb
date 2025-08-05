@@ -7,6 +7,8 @@ RSpec.describe "Called method integration" do
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
     @persistence_manager = Codebeacon::Tracer::PersistenceManager.new(@db)
+    # Clear caches between tests to prevent mock object leakage
+    Codebeacon::Tracer::NodeBuilder.clear_caches
   end
 
   it "records called_method when method is aliased" do
