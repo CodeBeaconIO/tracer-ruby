@@ -17,7 +17,7 @@ module Codebeacon
         @trace_id = SecureRandom.uuid
         @tree_manager = ThreadLocalCallTreeManager.new(@trace_id)
         @metadata = TraceMetadata.new(name:, description:, caller_location:, trigger_type:)
-        @skip_cache = {}
+        @skip_cache = { nil => true } # nil paths are always skipped - caching it here prevents an extra nil check
       end
 
       def name=(new_name)
@@ -108,7 +108,9 @@ module Codebeacon
 
       def trace(type)
         TracePoint.new(type) do |tp|
-          if skip_methods?(tp.path)
+          # Inline fast path checks to eliminate method call overhead
+          path = tp.path
+          if @skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path)
             @skip_logger.increment()
             next
           end
@@ -119,10 +121,8 @@ module Codebeacon
       end
 
       def skip_methods?(path)
-        return true if path.nil?
+        # Note: path.nil? and cache checks are now inlined in trace() for performance
         
-        return @skip_cache[path] if @skip_cache.key?(path)
-
         # Check if the path is in the exclude list.
         # We need to check "relative" paths first because we need to exclude the special "<internal..." style paths.
         # If we try to find the absolute path, it will prepend the root/cwd and will end up being traced
