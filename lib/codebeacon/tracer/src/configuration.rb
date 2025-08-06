@@ -69,8 +69,8 @@ module Codebeacon
       #   end
       # end
 
-      def lib_root
-        File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..'))
+      def root_path
+        @root_path ||= @config_root_path || (defined?(Rails) ? Rails.root.to_s : Dir.pwd)
       end
 
       def data_dir
@@ -93,12 +93,26 @@ module Codebeacon
         File.join(data_dir, "paths.yml")
       end
 
-      def config_path
-        File.expand_path(File.join('config.yml')) 
-      end
-
       def tracer_config_path
         File.join(data_dir, "tracer_config.yml")
+      end
+
+      def gem_root_path
+        @gem_root_path ||= begin
+          spec = Gem::Specification.find_by_name('codebeacon-tracer')
+          spec.gem_dir
+        rescue Gem::MissingSpecError
+          # Fallback to __FILE__ if gem is not installed via RubyGems
+          File.expand_path(File.join(File.dirname(__FILE__), '..', '..', '..', '..'))
+        end
+      end
+
+      def lib_root
+        File.join(gem_root_path, 'lib')
+      end
+
+      def config_path
+        File.join(gem_root_path, 'lib', 'codebeacon', 'tracer', 'config.yml')
       end
 
       def read_paths
@@ -117,10 +131,6 @@ module Codebeacon
 
       def gem_path
         @gem_path ||= ENV['GEM_HOME'] || Gem.paths.home
-      end
-
-      def root_path
-        @root_path ||= @config_root_path || (defined?(Rails) ? Rails.root.to_s : Dir.pwd)
       end
 
       def rubylib_path

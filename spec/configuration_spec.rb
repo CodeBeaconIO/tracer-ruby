@@ -185,4 +185,37 @@ RSpec.describe Codebeacon::Tracer::Configuration do
       end
     end
   end
+
+  describe '#lib_root' do
+    it 'resolves to the lib directory' do
+      expected_path = File.expand_path('lib')
+      expect(config.lib_root).to eq(expected_path)
+    end
+  end
+
+  describe '#gem_root_path' do
+    context 'when gem is found via Gem::Specification' do
+      let(:mock_gem_spec) { double('gem_spec', gem_dir: '/path/to/gem') }
+
+      before do
+        allow(Gem::Specification).to receive(:find_by_name).with('codebeacon-tracer').and_return(mock_gem_spec)
+      end
+
+      it 'returns the gem directory from Gem::Specification' do
+        expect(config.gem_root_path).to eq('/path/to/gem')
+      end
+    end
+
+    context 'when Gem::Specification raises MissingSpecError' do
+      before do
+        allow(Gem::Specification).to receive(:find_by_name).with('codebeacon-tracer').and_raise(Gem::MissingSpecError.new('codebeacon-tracer', '>= 0'))
+      end
+
+      it 'falls back to __FILE__ based path calculation' do
+        # The fallback path should be the gem root directory
+        expected_path = File.expand_path(File.join(File.dirname(__FILE__), '..'))
+        expect(config.gem_root_path).to eq(expected_path)
+      end
+    end
+  end
 end 

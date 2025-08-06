@@ -1,6 +1,7 @@
 exclude:
   paths:
     - '<internal:'
+    - '(eval)'
   gems:
     - 'puma'
     - 'reline'
