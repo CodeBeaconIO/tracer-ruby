@@ -46,12 +46,12 @@ module Codebeacon
       def increment()
         @count += 1
         if @count % @interval == 0
-          @logger.info(@count.to_s + " " + @msg)
+          @logger.info(@count.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse + " " + @msg)
         end
       end
 
       def finish()
-        @logger.info("Finished: " + @count.to_s + " " + @msg)
+        @logger.info("Finished: " + @count.to_s.reverse.gsub(/(\d{3})(?=\d)/, '\\1,').reverse + " " + @msg)
       end
     end
   end
