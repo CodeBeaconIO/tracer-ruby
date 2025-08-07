@@ -88,10 +88,26 @@ module Codebeacon
 
       def trace_b_call
         trace(:b_call) do |tp|
+          if !tp.method_id.nil?
+            # This is a counter intuitive and likely not a robust solution.
+            # I believe the method_id is the method_id where the block is defined, but I'm writing this comment long after I actually developed this solution and honestly don't remember for sure
+            # When blocks are defined at the class level, like for rails scopes, the method_id will be nil and calls to this will be explicitly traced as an independent node.
+            # When defined in a method and called within that method, I have chosent to hide this block call from the trace and slurp its children directly into its parent.
+            # The same thing should happen if the block is called in a method other than its defined method.
+            # For precision, these should eventually be traced as an independent node, but
+            #   1. It's not actually currently that useful
+            #   2. I don't have filtering in vscode to turn it on and off
+            #   3. I don't have the actual name of the method that the block was passed into, so I either need to have a blank "block" node or repeat the method_id again - both look weird.
+            # For example: 
+            #    When an "each" block is called in a method called "mymethod", the method_id is actually the name of the containing "mymethod" method.
+            #    The each method call (and all of the built ins) are intentionally not traced because these are defined outside of the root dir project.
+            #    If each calls "anothermethod" and iterates 10 times, the trace will show 10 "anothermethod" calls directly under "mymethod".
+
+            @skip_logger.increment()
+            next
+          end
           NodeBuilder.trace_block_call(call_tree, tp, "")
-        ensure
           @progress_logger.increment()
-        end
       end
 
       def trace_return
@@ -102,6 +118,10 @@ module Codebeacon
 
       def trace_b_return
         trace(:b_return) do |tp|
+          if !tp.method_id.nil?
+            @skip_logger.increment()
+            next
+          end
           NodeBuilder.trace_return(call_tree, tp)
         end
       end
