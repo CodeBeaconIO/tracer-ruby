@@ -19,7 +19,7 @@ module Codebeacon
         @description = description
         @trace_id = SecureRandom.uuid
         @tree_manager = ThreadLocalCallTreeManager.new(@trace_id)
-        @metadata = TraceMetadata.new(name:, description:, caller_location:, trigger_type:)
+        @metadata = TraceMetadata.new(name:, description:, caller_location:, trigger_type:, tracer_version: Codebeacon::Tracer::VERSION)
         @skip_cache = { nil => true } # nil paths are always skipped - caching it here prevents an extra nil check
       end
 

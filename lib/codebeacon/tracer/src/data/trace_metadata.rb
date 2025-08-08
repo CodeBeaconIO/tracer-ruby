@@ -3,9 +3,9 @@ module Codebeacon
     class TraceMetadata
       attr_reader :name, :description, :caller_file, :caller_method, :caller_line, 
                   :caller_class, :caller_defined_class, :start_time, 
-                  :end_time, :duration_ms, :trigger_type, :language
+                  :end_time, :duration_ms, :trigger_type, :language, :tracer_version
 
-      def initialize(name: nil, description: nil, caller_location: nil, trigger_type: nil)
+      def initialize(name: nil, description: nil, caller_location: nil, trigger_type: nil, tracer_version: nil)
         @name = name
         @description = description
         @start_time = Time.now
@@ -13,6 +13,7 @@ module Codebeacon
         @duration_ms = nil
         @trigger_type = trigger_type
         @language = "ruby"
+        @tracer_version = tracer_version
         
         if caller_location
           capture_caller_info_from_location(caller_location)
@@ -37,7 +38,8 @@ module Codebeacon
           end_time: @end_time,
           duration_ms: @duration_ms,
           trigger_type: @trigger_type,
-          language: @language
+          language: @language,
+          tracer_version: @tracer_version
         }
       end
 
