@@ -43,6 +43,11 @@ module Codebeacon
         @count = 0
       end
 
+      def decrement()
+        # Technically, for robustness, logging should be tracked so as to not double log, but in practice decrement is only used at the very end for persistence so this is not a problem.
+        @count -= 1
+      end
+
       def increment()
         @count += 1
         if @count % @interval == 0

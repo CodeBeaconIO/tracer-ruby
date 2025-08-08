@@ -10,7 +10,10 @@ module Codebeacon
 
       def initialize(name: nil, description: nil, caller_location: nil, trigger_type: nil)
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("calls traced")
+        @total_calls_logger = Codebeacon::Tracer.logger.newProgressLogger("total calls")
         @skip_logger = Codebeacon::Tracer.logger.newProgressLogger("calls skipped")
+        @error_call_logger = Codebeacon::Tracer.logger.newProgressLogger("calls errored")
+        @error_return_logger = Codebeacon::Tracer.logger.newProgressLogger("returns errored")
         @traces = [trace_call, trace_b_call, trace_return, trace_b_return]
         @name = name
         @description = description
@@ -41,6 +44,9 @@ module Codebeacon
       def start()
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("calls traced")
         @skip_logger = Codebeacon::Tracer.logger.newProgressLogger("calls skipped", 10000)
+        @error_call_logger = Codebeacon::Tracer.logger.newProgressLogger("calls errored", Float::INFINITY)
+        @error_return_logger = Codebeacon::Tracer.logger.newProgressLogger("returns errored", Float::INFINITY)
+        @total_calls_logger = Codebeacon::Tracer.logger.newProgressLogger("total calls", Float::INFINITY)
         start_traces
       end
 
@@ -48,6 +54,9 @@ module Codebeacon
         stop_traces
         @progress_logger.finish()
         @skip_logger.finish()
+        @error_call_logger.finish()
+        @error_return_logger.finish()
+        @total_calls_logger.finish()
         @metadata.finish_trace
       end
 
@@ -81,8 +90,9 @@ module Codebeacon
       def trace_call
         trace(:call) do |tp|
           NodeBuilder.trace_method_call(call_tree, tp, "")
-        ensure
           @progress_logger.increment()
+        ensure
+          @total_calls_logger.increment()
         end
       end
 
@@ -108,6 +118,9 @@ module Codebeacon
           end
           NodeBuilder.trace_block_call(call_tree, tp, "")
           @progress_logger.increment()
+        ensure
+          @total_calls_logger.increment()
+        end
       end
 
       def trace_return
@@ -119,7 +132,6 @@ module Codebeacon
       def trace_b_return
         trace(:b_return) do |tp|
           if !tp.method_id.nil?
-            @skip_logger.increment()
             next
           end
           NodeBuilder.trace_return(call_tree, tp)
@@ -131,12 +143,20 @@ module Codebeacon
           # Inline fast path checks to eliminate method call overhead
           path = tp.path
           if @skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path)
-            @skip_logger.increment()
+            if type == :call || type == :b_call
+              @skip_logger.increment()
+              @total_calls_logger.increment()
+            end
             next
           end
           yield tp
         rescue => e
           Codebeacon::Tracer.logger.error("TracePoint(#{type}) #{tp.path} #{e.message}")
+          if type == :call || type == :b_call
+            @error_call_logger.increment()
+          elsif type == :return || type == :b_return
+            @error_return_logger.increment()
+          end
         end
       end
 

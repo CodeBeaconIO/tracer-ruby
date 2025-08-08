@@ -48,7 +48,8 @@ module Codebeacon
       ensure
         @database.commit
         @tree_node_mapper.close_statement
-        @progress_logger.finish
+        @progress_logger.decrement() # Do not count the root node which is in addition to the traced nodes
+        @progress_logger.finish()
         Codebeacon::Tracer.logger.info("END db persistence")
       end
 
