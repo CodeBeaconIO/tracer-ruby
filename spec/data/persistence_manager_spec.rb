@@ -99,7 +99,8 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
         anything,
         anything,
         anything,
-        anything
+        anything,
+        anything # has_children parameter
       )
       
       # Call the method

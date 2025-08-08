@@ -79,7 +79,8 @@ module Codebeacon
           tree_node.block,
           tree_node.node_source&.id,
           return_type(tree_node),
-          return_value(tree_node)
+          return_value(tree_node),
+          tree_node.has_children
         )
 
         return if tree_node.depth_truncated?

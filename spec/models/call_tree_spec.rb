@@ -33,6 +33,10 @@ RSpec.describe Codebeacon::Tracer::CallTree do
     it 'sets current_node to root' do
       expect(call_tree.current_node).to eq(call_tree.root)
     end
+
+    it 'initializes root node with has_children set to false' do
+      expect(call_tree.root.has_children).to be false
+    end
   end
 
   describe '#total_call_count' do
@@ -61,6 +65,10 @@ RSpec.describe Codebeacon::Tracer::CallTree do
       expect(call_tree.current_node).not_to eq(call_tree.root)
       expect(call_tree.current_node.parent).to eq(call_tree.root)
     end
+
+    it 'sets has_children flag on the parent node' do
+      expect { call_tree.add_call }.to change { call_tree.root.has_children }.from(false).to(true)
+    end
   end
 
   describe '#add_block_call' do
@@ -80,6 +88,10 @@ RSpec.describe Codebeacon::Tracer::CallTree do
       call_tree.add_block_call
       expect(call_tree.current_node).not_to eq(call_tree.root)
       expect(call_tree.current_node.parent).to eq(call_tree.root)
+    end
+
+    it 'sets has_children flag on the parent node' do
+      expect { call_tree.add_block_call }.to change { call_tree.root.has_children }.from(false).to(true)
     end
   end
 

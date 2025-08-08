@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'set'
 
   # store node memory in a format that can be directly loaded 1:1 into sqlite3
@@ -31,7 +33,7 @@ module Codebeacon
       #   @children = []
       # end
 
-      attr_accessor :file, :line, :method, :object_id, :tp_class, :tp_defined_class, :tp_class_name, :self_type, :depth, :caller, :gem_entry, :children, :parent, :block, :locals, :return_value, :linevars, :node_source, :trace_status, :script, :backtrace_count, :backtrace_location, :script_binding, :script_self, :called_method
+      attr_accessor :file, :line, :method, :object_id, :tp_class, :tp_defined_class, :tp_class_name, :self_type, :depth, :caller, :gem_entry, :children, :parent, :block, :locals, :return_value, :linevars, :node_source, :trace_status, :script, :backtrace_count, :backtrace_location, :script_binding, :script_self, :called_method, :has_children
 
       def initialize(file: nil, line: nil, object_id: nil, method: nil, tp_class: nil, tp_defined_class: nil, tp_class_name: nil, self_type: nil, depth: 0, caller: "", gem_entry: false, parent: nil, block: false, locals: [], return_value: nil, node_source: nil, script: false, called_method: nil)
         @file = file
@@ -43,6 +45,7 @@ module Codebeacon
         @tp_class_name = tp_class_name
         @self_type = self_type
         @children = []
+        @has_children = false
         @depth = depth
         @gem_entry = gem_entry
         @caller = caller
@@ -59,6 +62,12 @@ module Codebeacon
         @script_binding = nil
         @script_self = nil
         @called_method = called_method
+      end
+
+      def add_child(child)
+        @children << child
+        @has_children = true
+        child.parent = self
       end
 
       def add_line(lineno, variables)
@@ -102,6 +111,7 @@ module Codebeacon
           gemEntry: @gem_entry,
           caller: @caller,
           isDepthTruncated: is_truncated,
+          hasChildren: @has_children,
           children: children
         }
       end

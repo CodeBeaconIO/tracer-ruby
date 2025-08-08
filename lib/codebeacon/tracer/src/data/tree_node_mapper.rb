@@ -11,8 +11,8 @@ module Codebeacon
         prepare_statement
       end
 
-      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value)
-        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value)
+      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value, has_children)
+        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value, has_children ? 1 : 0)
         @db.last_insert_row_id
       end
 
@@ -40,6 +40,7 @@ module Codebeacon
             node_source_id INTEGER,
             return_type TEXT,
             return_value TEXT,
+            has_children INTEGER DEFAULT 0,
             FOREIGN KEY (parent_id) REFERENCES treenodes(id),
             FOREIGN KEY (node_source_id) REFERENCES node_sources(id)
           )
@@ -51,6 +52,7 @@ module Codebeacon
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_node_source_id ON treenodes(node_source_id)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_file ON treenodes(file)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_called_method ON treenodes(called_method)")
+        database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_has_children ON treenodes(has_children)")
       end
 
       private
@@ -60,11 +62,11 @@ module Codebeacon
           INSERT INTO treenodes
           (
               file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller,
-              gemEntry, parent_id, block, node_source_id, return_type, return_value
+              gemEntry, parent_id, block, node_source_id, return_type, return_value, has_children
           )
           VALUES
           (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
         @statement = @db.prepare(sql)

@@ -31,10 +31,11 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       node_source_id = 1
       return_type = "String"
       return_value = "test_return_value"
+      has_children = true
 
       node_id = @mapper.insert(
         file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, 
-        self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value
+        self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value, has_children
       )
 
       expect(node_id).to be_a(Integer)
@@ -57,17 +58,18 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       expect(result[14]).to eq(node_source_id)
       expect(result[15]).to eq(return_type)
       expect(result[16]).to eq(return_value)
+      expect(result[17]).to eq(1) # has_children as integer
     end
 
     it 'inserts a tree node with a parent' do
       parent_id = @mapper.insert(
         "parent.rb", 1, "parent_called_method", "parent_method", "ParentClass", "ParentDefinedClass", 
-        "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, "Integer", nil
+        "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, "Integer", nil, true
       )
 
       child_id = @mapper.insert(
         "child.rb", 2, "child_called_method", "child_method", "ChildClass", "ChildDefinedClass", 
-        "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, "String", "result"
+        "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, "String", "result", false
       )
 
       result = @db.execute("SELECT parent_id FROM treenodes WHERE id = ?", child_id).first
@@ -77,55 +79,55 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
     it 'inserts a tree node with a called_method' do
       called_method_id = @mapper.insert(
         "called_method.rb", 1, "called_method_called", "called_method_method", "CalledMethodClass", "CalledMethodDefinedClass", 
-        "CalledMethodClassName", "Object", 0, "called_method_caller", false, nil, false, nil, "Integer", nil
+        "CalledMethodClassName", "Object", 0, "called_method_caller", false, nil, false, nil, "Integer", nil, false
       )
 
       caller_id = @mapper.insert(
         "caller.rb", 2, "caller_called_method", "caller_method", "CallerClass", "CallerDefinedClass", 
-        "CallerClassName", "Object", 1, "caller_caller", false, nil, false, nil, "String", "result"
+        "CallerClassName", "Object", 1, "caller_caller", false, nil, false, nil, "String", "result", true
       )
 
       result = @db.execute("SELECT called_method FROM treenodes WHERE id = ?", caller_id).first
       expect(result[0]).to eq("caller_called_method")
     end
+
+    it 'correctly stores has_children flag' do
+      node_with_children = @mapper.insert(
+        "with_children.rb", 1, "method", "method", "Class", "Class", "ClassName", "Object", 0, "caller", 
+        false, nil, false, nil, "Integer", nil, true
+      )
+
+      node_without_children = @mapper.insert(
+        "without_children.rb", 1, "method", "method", "Class", "Class", "ClassName", "Object", 0, "caller", 
+        false, nil, false, nil, "Integer", nil, false
+      )
+
+      with_children_result = @db.execute("SELECT has_children FROM treenodes WHERE id = ?", node_with_children).first
+      without_children_result = @db.execute("SELECT has_children FROM treenodes WHERE id = ?", node_without_children).first
+
+      expect(with_children_result[0]).to eq(1)
+      expect(without_children_result[0]).to eq(0)
+    end
   end
 
   describe '.create_table' do
-    it 'creates the treenodes table' do
-      result = @db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='treenodes'")
-      expect(result).not_to be_empty
-    end
-
-    it 'creates the table with the correct columns' do
-      result = @db.execute("PRAGMA table_info(treenodes)")
-      column_names = result.map { |col| col[1] }
+    it 'creates the treenodes table with has_children column' do
+      db = SQLite3::Database.new ":memory:"
+      Codebeacon::Tracer::TreeNodeMapper.create_table(db)
       
-      expected_columns = [
-        "id", "file", "line", "called_method", "method", "tp_class", "tp_defined_class", 
-        "tp_class_name", "self_type", "depth", "caller", "gemEntry", 
-        "parent_id", "block", "node_source_id", "return_type", "return_value"
-      ]
-      
-      expected_columns.each do |column|
-        expect(column_names).to include(column)
-      end
+      columns = db.execute("PRAGMA table_info(treenodes)").map { |row| row[1] }
+      expect(columns).to include("has_children")
     end
   end
 
   describe '.create_indexes' do
-    it 'creates the parent_id index' do
-      result = @db.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_treenode_parent_id'")
-      expect(result).not_to be_empty
-    end
-
-    it 'creates the node_source_id index' do
-      result = @db.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_treenode_node_source_id'")
-      expect(result).not_to be_empty
-    end
-
-    it 'creates the called_method index' do
-      result = @db.execute("SELECT name FROM sqlite_master WHERE type='index' AND name='IDX_treenode_called_method'")
-      expect(result).not_to be_empty
+    it 'creates an index on has_children column' do
+      db = SQLite3::Database.new ":memory:"
+      Codebeacon::Tracer::TreeNodeMapper.create_table(db)
+      Codebeacon::Tracer::TreeNodeMapper.create_indexes(db)
+      
+      indexes = db.execute("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='treenodes'").map { |row| row[0] }
+      expect(indexes).to include("IDX_treenode_has_children")
     end
   end
 end

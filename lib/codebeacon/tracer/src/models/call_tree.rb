@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Codebeacon
   module Tracer
     class CallTree
@@ -39,8 +41,7 @@ module Codebeacon
 
       def add_node()
         new_node = TreeNode.new()
-        @current_node.children << new_node
-        new_node.parent = @current_node
+        @current_node.add_child(new_node)
         @depth += 1
         @current_node = new_node
       end
