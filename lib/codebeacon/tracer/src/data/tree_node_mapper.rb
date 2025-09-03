@@ -11,8 +11,8 @@ module Codebeacon
         prepare_statement
       end
 
-      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value, has_children)
-        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value, has_children ? 1 : 0)
+      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value, has_children, boundary_caller_id)
+        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, return_type, return_value, has_children ? 1 : 0, boundary_caller_id)
         @db.last_insert_row_id
       end
 
@@ -41,8 +41,10 @@ module Codebeacon
             return_type TEXT,
             return_value TEXT,
             has_children INTEGER DEFAULT 0,
+            boundary_caller_id INTEGER,
             FOREIGN KEY (parent_id) REFERENCES treenodes(id),
-            FOREIGN KEY (node_source_id) REFERENCES node_sources(id)
+            FOREIGN KEY (node_source_id) REFERENCES node_sources(id),
+            FOREIGN KEY (boundary_caller_id) REFERENCES boundary_callers(id)
           )
         SQL
       end
@@ -53,6 +55,7 @@ module Codebeacon
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_file ON treenodes(file)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_called_method ON treenodes(called_method)")
         database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_has_children ON treenodes(has_children)")
+        database.execute("CREATE INDEX IF NOT EXISTS IDX_treenode_boundary_caller_id ON treenodes(boundary_caller_id)")
       end
 
       private
@@ -62,11 +65,11 @@ module Codebeacon
           INSERT INTO treenodes
           (
               file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller,
-              gemEntry, parent_id, block, node_source_id, return_type, return_value, has_children
+              gemEntry, parent_id, block, node_source_id, return_type, return_value, has_children, boundary_caller_id
           )
           VALUES
           (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
         @statement = @db.prepare(sql)

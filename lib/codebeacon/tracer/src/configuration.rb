@@ -37,6 +37,7 @@ module Codebeacon
         if File.exist?(config_path)
           config_data = YAML.load_file(config_path)
           load_exclude_paths(config_data['exclude'])
+          @track_boundary_callers = config_data['track_boundary_callers'] != false  # Default to true
         end
       end
 
@@ -287,6 +288,10 @@ module Codebeacon
           @config_listener.stop
           @config_listener = nil
         end
+      end
+
+      def track_boundary_callers?
+        @track_boundary_callers != false  # Default to true if not set
       end
 
       private

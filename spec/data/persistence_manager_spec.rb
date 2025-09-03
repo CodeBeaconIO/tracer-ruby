@@ -8,6 +8,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
     Codebeacon::Tracer::TreeNodeMapper.create_table(@db)
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::TreeNodeMapper.create_indexes(@db)
   end
   
@@ -15,6 +16,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
     @db.execute("DELETE FROM treenodes")
     @db.execute("DELETE FROM node_sources")
     @db.execute("DELETE FROM metadata")
+    @db.execute("DELETE FROM boundary_callers")
     @persistence_manager = Codebeacon::Tracer::PersistenceManager.new(@db)
   end
 
@@ -100,7 +102,8 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
         anything,
         anything,
         anything,
-        anything # has_children parameter
+        anything, # has_children parameter
+        anything  # library_call_id parameter
       )
       
       # Call the method

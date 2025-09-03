@@ -4,8 +4,11 @@ RSpec.describe "Called method integration" do
   before(:each) do
     @db = SQLite3::Database.new(":memory:")
     Codebeacon::Tracer::TreeNodeMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     @persistence_manager = Codebeacon::Tracer::PersistenceManager.new(@db)
     # Clear caches between tests to prevent mock object leakage
     Codebeacon::Tracer::NodeBuilder.clear_caches

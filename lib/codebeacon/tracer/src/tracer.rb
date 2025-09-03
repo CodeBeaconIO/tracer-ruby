@@ -88,8 +88,19 @@ module Codebeacon
       end
 
       def trace_call
-        trace(:call) do |tp|
-          NodeBuilder.trace_method_call(call_tree, tp, "")
+        trace(:call) do |tp, out_of_bounds|
+          current_node = call_tree.current_node
+          if out_of_bounds
+            track_library_increment(current_node, tp)
+            @skip_logger.increment()
+            next
+          end
+          if current_node.library_depth > 0 && current_node.library_exit_info
+            NodeBuilder.trace_method_call_with_callback(call_tree, tp, "", current_node.library_exit_info)
+          else
+            NodeBuilder.trace_method_call(call_tree, tp, "")
+          end
+
           @progress_logger.increment()
         ensure
           @total_calls_logger.increment()
@@ -97,18 +108,18 @@ module Codebeacon
       end
 
       def trace_b_call
-        trace(:b_call) do |tp|
+        trace(:b_call) do |tp, out_of_bounds|
           if !tp.method_id.nil?
             # This is a counter intuitive and likely not a robust solution.
             # I believe the method_id is the method_id where the block is defined, but I'm writing this comment long after I actually developed this solution and honestly don't remember for sure
             # When blocks are defined at the class level, like for rails scopes, the method_id will be nil and calls to this will be explicitly traced as an independent node.
-            # When defined in a method and called within that method, I have chosent to hide this block call from the trace and slurp its children directly into its parent.
+            # When defined in a method and called within that method, I have chosen to hide this block call from the trace and slurp its children directly into its parent.
             # The same thing should happen if the block is called in a method other than its defined method.
             # For precision, these should eventually be traced as an independent node, but
             #   1. It's not actually currently that useful
             #   2. I don't have filtering in vscode to turn it on and off
             #   3. I don't have the actual name of the method that the block was passed into, so I either need to have a blank "block" node or repeat the method_id again - both look weird.
-            # For example: 
+            # For example:
             #    When an "each" block is called in a method called "mymethod", the method_id is actually the name of the containing "mymethod" method.
             #    The each method call (and all of the built ins) are intentionally not traced because these are defined outside of the root dir project.
             #    If each calls "anothermethod" and iterates 10 times, the trace will show 10 "anothermethod" calls directly under "mymethod".
@@ -116,7 +127,19 @@ module Codebeacon
             @skip_logger.increment()
             next
           end
-          NodeBuilder.trace_block_call(call_tree, tp, "")
+          current_node = call_tree.current_node
+          if out_of_bounds
+            track_library_increment(current_node, tp)
+            @skip_logger.increment()
+            next
+          end
+
+          if current_node.library_depth > 0 && current_node.library_exit_info
+            NodeBuilder.trace_block_call_with_callback(call_tree, tp, "", current_node.library_exit_info)
+          else
+            NodeBuilder.trace_block_call(call_tree, tp, "")
+          end
+
           @progress_logger.increment()
         ensure
           @total_calls_logger.increment()
@@ -124,32 +147,32 @@ module Codebeacon
       end
 
       def trace_return
-        trace(:return) do |tp|
-          NodeBuilder.trace_return(call_tree, tp)
+        trace(:return) do |tp, out_of_bounds|
+          if out_of_bounds
+            track_library_decrement(call_tree.current_node, tp.path)
+          else
+            NodeBuilder.trace_return(call_tree, tp)
+          end
         end
       end
 
       def trace_b_return
-        trace(:b_return) do |tp|
+        trace(:b_return) do |tp, out_of_bounds|
           if !tp.method_id.nil?
             next
           end
-          NodeBuilder.trace_return(call_tree, tp)
+          if out_of_bounds
+            track_library_decrement(call_tree.current_node, tp.path)
+          else
+            NodeBuilder.trace_return(call_tree, tp)
+          end
         end
       end
 
       def trace(type)
         TracePoint.new(type) do |tp|
-          # Inline fast path checks to eliminate method call overhead
           path = tp.path
-          if @skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path)
-            if type == :call || type == :b_call
-              @skip_logger.increment()
-              @total_calls_logger.increment()
-            end
-            next
-          end
-          yield tp
+          yield tp, (@skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path))
         rescue => e
           Codebeacon::Tracer.logger.error("TracePoint(#{type}) #{tp.path} #{e.message}")
           if type == :call || type == :b_call
@@ -160,9 +183,32 @@ module Codebeacon
         end
       end
 
+      def track_library_increment(current_node, tp)
+        return if current_node.is_root?
+
+        if current_node.library_depth == 0
+          current_node.library_exit_info = {
+            outgoing_method: tp.method_id.to_s,
+            outgoing_method_as_called: tp.callee_id != tp.method_id ? tp.callee_id.to_s : nil
+          }
+        end
+        current_node.library_depth += 1
+      end
+
+      def track_library_decrement(current_node, path)
+        return if current_node.is_root?
+
+        if current_node.library_depth > 0
+          current_node.library_depth -= 1
+          if current_node.library_depth == 0
+            current_node.library_exit_info = nil
+          end
+        end
+      end
+
       def skip_methods?(path)
         # Note: path.nil? and cache checks are now inlined in trace() for performance
-        
+
         # Check if the path is in the exclude list.
         # We need to check "relative" paths first because we need to exclude the special "<internal..." style paths.
         # If we try to find the absolute path, it will prepend the root/cwd and will end up being traced

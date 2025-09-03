@@ -32,10 +32,42 @@ module Codebeacon
           trace_call(call_tree, tp, tp_caller, :get_block_ast)
         end
 
+        def trace_method_call_with_callback(call_tree, tp, tp_caller, library_exit_info)
+          initialize_caches
+          parent_library_depth = call_tree.current_node.library_depth
+          call_tree.add_call
+          new_node = trace_call(call_tree, tp, tp_caller, :get_method_ast)
+          
+          # Keep track of current library depth as we may have additional nested calls that we trace.
+          new_node.library_depth = parent_library_depth
+          new_node.callback_info = {
+            outgoing_method: library_exit_info[:outgoing_method].to_s,
+            outgoing_method_as_called: library_exit_info[:outgoing_method_as_called]
+          }
+          
+          new_node
+        end
+
+        def trace_block_call_with_callback(call_tree, tp, tp_caller, library_exit_info)
+          initialize_caches
+          parent_library_depth = call_tree.current_node.library_depth
+          current_context = call_tree.add_block_call
+          current_context.block = true
+          new_node = trace_call(call_tree, tp, tp_caller, :get_block_ast)
+          
+          # Keep track of current library depth as we may have additional nested calls that we trace.
+          new_node.library_depth = parent_library_depth
+          new_node.callback_info = {
+            outgoing_method: library_exit_info[:outgoing_method].to_s,
+            outgoing_method_as_called: library_exit_info[:outgoing_method_as_called]
+          }
+          
+          new_node
+        end
+
         def trace_return(call_tree, tp)
           begin
             current_context = call_tree.current_node
-            variable_values = {}
             current_context.return_value = "--Codebeacon::Tracer ERROR-- could not capture return value"
             previous_line = current_context.trace_status.previous_line
             current_context.return_value = tp.return_value
@@ -78,6 +110,8 @@ module Codebeacon
           end
           current_context.gem_entry = gem_entry
           current_context.caller = ""
+          
+          current_context
         end
       end
     end

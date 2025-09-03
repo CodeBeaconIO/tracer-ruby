@@ -4,6 +4,7 @@ RSpec.describe Codebeacon::Tracer::MetadataMapper do
   before(:each) do
     @db = SQLite3::Database.new(":memory:")
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     @mapper = Codebeacon::Tracer::MetadataMapper.new(@db)
   end
 

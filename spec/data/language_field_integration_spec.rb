@@ -4,8 +4,11 @@ RSpec.describe "Language field integration" do
   before(:each) do
     @db = SQLite3::Database.new(":memory:")
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::TreeNodeMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     @persistence_manager = Codebeacon::Tracer::PersistenceManager.new(@db)
   end
 

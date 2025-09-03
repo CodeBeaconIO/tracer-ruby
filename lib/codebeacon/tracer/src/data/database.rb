@@ -4,6 +4,7 @@ require "sqlite3"
 require "fileutils"
 require_relative "tree_node_mapper"
 require_relative "node_source_mapper"
+require_relative "boundary_caller_mapper"
 
 module Codebeacon
   module Tracer
@@ -32,12 +33,14 @@ module Codebeacon
         MetadataMapper.create_table(db)
         TreeNodeMapper.create_table(db)
         NodeSourceMapper.create_table(db)
+        BoundaryCallerMapper.create_table(db)
       end
 
       def create_indexes
         MetadataMapper.create_indexes(db)
         TreeNodeMapper.create_indexes(db)
         NodeSourceMapper.create_indexes(db)
+        BoundaryCallerMapper.create_indexes(db)
       end
 
       def self.trim_db_files(config)

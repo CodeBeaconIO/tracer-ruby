@@ -3,6 +3,7 @@
 require_relative "tree_node_mapper"
 require_relative "node_source_mapper"
 require_relative "metadata_mapper"
+require_relative "boundary_caller_mapper"
 require_relative "type_detector"
 require_relative "safe_serializer"
 
@@ -14,6 +15,7 @@ module Codebeacon
         @tree_node_mapper = TreeNodeMapper.new(database)
         @node_source_mapper = NodeSourceMapper.new(database)
         @metadata_mapper = MetadataMapper.new(database)
+        @boundary_caller_mapper = BoundaryCallerMapper.new(database)
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("nodes persisted")
       end
 
@@ -48,6 +50,7 @@ module Codebeacon
       ensure
         @database.commit
         @tree_node_mapper.close_statement
+        @boundary_caller_mapper.close_statement
         @progress_logger.decrement() # Do not count the root node which is in addition to the traced nodes
         @progress_logger.finish()
         Codebeacon::Tracer.logger.info("END db persistence")
@@ -62,6 +65,15 @@ module Codebeacon
       def _save_tree(tree_node, parent_id = nil)
         @progress_logger.increment
         return if tree_node.nil?
+
+        # Get library_call_id if this node has callback info
+        boundary_caller_id = nil
+        if tree_node.callback_info
+          boundary_caller_id = @boundary_caller_mapper.find_or_create(
+            tree_node.callback_info[:outgoing_method],
+            tree_node.callback_info[:outgoing_method_as_called]
+          )
+        end
 
         node_id = @tree_node_mapper.insert(
           tree_node.file,
@@ -80,7 +92,8 @@ module Codebeacon
           tree_node.node_source&.id,
           return_type(tree_node),
           return_value(tree_node),
-          tree_node.has_children
+          tree_node.has_children,
+          boundary_caller_id
         )
 
         return if tree_node.depth_truncated?

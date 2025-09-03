@@ -9,6 +9,7 @@ RSpec.describe "Symbol handling in PersistenceManager" do
     Codebeacon::Tracer::TreeNodeMapper.create_table(@db)
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
+    Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::TreeNodeMapper.create_indexes(@db)
   end
   
