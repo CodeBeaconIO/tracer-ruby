@@ -10,7 +10,7 @@ end
 module Codebeacon
   module Tracer
     class Configuration
-      MAX_DB_FILES = 100
+      MAX_DB_FILES = 25
       RETURN_VAL_MAX_LENGTH = 1000
       MAX_CALL_COUNT = 100000000
       MAX_DEPTH = 99999
@@ -96,6 +96,10 @@ module Codebeacon
 
       def tracer_config_path
         File.join(data_dir, "tracer_config.yml")
+      end
+
+      def pinned_recordings_path
+        File.join(data_dir, "pinned_recordings.yml")
       end
 
       def gem_root_path

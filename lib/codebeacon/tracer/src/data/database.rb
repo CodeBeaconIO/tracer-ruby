@@ -45,15 +45,31 @@ module Codebeacon
 
       def self.trim_db_files(config)
         db_path = config.db_path
-        db_files = Dir.glob(File.join(db_path, "*.db"))
-        db_files.reject! { |file| File.symlink?(file) }
-        db_files.sort_by! { |db_file| File.mtime(db_file) }
-        db_files.reverse!
+        all_db_files = Dir.glob(File.join(db_path, "*.db"))
+        all_db_files.reject! { |file| File.symlink?(file) }
+        delete_count = all_db_files.length - config.max_db_files
+        return if delete_count < 1
+        
+        pinned_file_names = load_pinned_recordings(config)
+        db_files = all_db_files.select do |db_file|
+          !pinned_file_names.include?(File.basename(db_file))
+        end
+        db_files.sort_by! { |db_file| File.birthtime(db_file) }
 
-        db_files.each_with_index do |db_file, index|
-          next if index < config.max_db_files
+        delete_count.times do |i|
+          File.delete(db_files[i])
+        end
+      end
 
-          File.delete(db_file)
+      def self.load_pinned_recordings(config)
+        pinned_path = config.pinned_recordings_path
+        return [] unless File.exist?(pinned_path)
+
+        begin
+          data = YAML.load_file(pinned_path)
+          data['pinned_recordings'] || []
+        rescue => e
+          []
         end
       end
     end

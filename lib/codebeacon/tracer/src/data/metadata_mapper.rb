@@ -21,7 +21,8 @@ module Codebeacon
             duration_ms REAL,
             trigger_type TEXT,
             language TEXT,
-            tracer_version TEXT
+            tracer_version TEXT,
+            pinned INTEGER DEFAULT 0
           );
         SQL
       end
