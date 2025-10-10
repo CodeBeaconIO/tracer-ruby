@@ -72,7 +72,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def app_wrapper
-            MixedLibraryYielder.library_call { app_inner_yield { puts "nested blocks" } }
+            MixedLibraryYielder.library_call { app_inner_yield { "nested blocks" } }
           end
 
           def app_inner_yield
@@ -121,7 +121,7 @@ RSpec.describe Codebeacon::Tracer do
           end
 
           def app_method
-            yielder { puts "called multiple times" }
+            yielder { "called multiple times" }
           end
         end
       RUBY
@@ -177,7 +177,7 @@ RSpec.describe Codebeacon::Tracer do
           end
 
           def app_method
-            recursive_yielder(3) { puts "recursive block" }
+            recursive_yielder(3) { "recursive block" }
           end
         end
       RUBY
@@ -228,7 +228,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def method_with_nested_block_calls
-            inner_block = proc { puts "inner" }
+            inner_block = proc { "inner" }
             outer_block = proc { inner_block.call }
 
             BlockCallerLibrary.execute(&outer_block)
@@ -311,7 +311,7 @@ RSpec.describe Codebeacon::Tracer do
           @trace_b_call.enable
           @trace_b_return.enable
             obj.hello_world do
-              puts 'Hello, block!'
+              'Hello, block!'
             end
           @trace_b_call.disable
           @trace_b_return.disable

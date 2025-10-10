@@ -36,7 +36,7 @@ RSpec.describe Codebeacon::Tracer do
 
       @trace_b_call.enable
         obj.hello_world do
-          puts 'Hello, block!'
+          'Hello, block!'
         end
       @trace_b_call.disable
       calling_line = __LINE__ - 4
@@ -74,7 +74,7 @@ RSpec.describe Codebeacon::Tracer do
           end
 
           def method_with_custom_block
-            custom_yield { puts "inside block" }
+            custom_yield { "inside block" }
           end
         end
       RUBY
@@ -108,7 +108,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def method_with_library_block
-            LibraryYielder.library_yield { puts "inside library block" }
+            LibraryYielder.library_yield { "inside library block" }
           end
         end
       RUBY
@@ -148,7 +148,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def method_with_nested_library_block
-            NestedLibraryYielder.outer_method { puts "inside nested library block" }
+            NestedLibraryYielder.outer_method { "inside nested library block" }
           end
         end
       RUBY
@@ -204,7 +204,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def method_with_deeply_nested_block
-            DeeplyNestedLibrary.lib_1 { puts "deeply nested block" }
+            DeeplyNestedLibrary.lib_1 { "deeply nested block" }
           end
         end
       RUBY
@@ -252,7 +252,7 @@ RSpec.describe Codebeacon::Tracer do
           end
 
           def caller_method
-            app_method_1 { puts "multi-app block" }
+            app_method_1 { "multi-app block" }
           end
         end
       RUBY
@@ -291,7 +291,7 @@ RSpec.describe Codebeacon::Tracer do
         let(:file_contents) { <<-RUBY }
           class CLASS_NAME
             def method_with_proc
-              my_proc = Proc.new { puts "proc" }
+              my_proc = Proc.new { "proc" }
               CallableLibrary.execute(&my_proc)
             end
           end
@@ -318,7 +318,7 @@ RSpec.describe Codebeacon::Tracer do
         let(:file_contents) { <<-RUBY }
           class CLASS_NAME
             def method_with_lambda
-              my_lambda = ->(x = nil) { puts "lambda" }
+              my_lambda = ->(x = nil) { "lambda" }
               CallableLibrary.execute(&my_lambda)
             end
           end
@@ -345,7 +345,7 @@ RSpec.describe Codebeacon::Tracer do
         let(:file_contents) { <<-RUBY }
           class CLASS_NAME
             def method_with_block
-              CallableLibrary.execute { puts "block" }
+              CallableLibrary.execute { "block" }
             end
           end
         RUBY
@@ -400,7 +400,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def method_with_exhausted_stack
-            DeepLibraryStack.lib_1 { puts "exhausted stack block" }
+            DeepLibraryStack.lib_1 { "exhausted stack block" }
           end
         end
       RUBY
@@ -439,7 +439,7 @@ RSpec.describe Codebeacon::Tracer do
       let(:file_contents) { <<-RUBY }
         class CLASS_NAME
           def method_with_dynamic_dispatch
-            DynamicLibrary.some_undefined_method { puts "dynamic" }
+            DynamicLibrary.some_undefined_method { "dynamic" }
           end
         end
       RUBY
@@ -475,7 +475,7 @@ RSpec.describe Codebeacon::Tracer do
         class CLASS_NAME
           def method_with_fiber
             fiber = Fiber.new do
-              FiberLibrary.execute { puts "in fiber block" }
+              FiberLibrary.execute { "in fiber block" }
             end
             fiber.resume
           end
@@ -513,7 +513,7 @@ RSpec.describe Codebeacon::Tracer do
 
           @trace_b_call.enable
             obj.hello_world do
-              puts 'Hello, block!'
+              'Hello, block!'
             end
           @trace_b_call.disable
           calling_line = __LINE__ - 4
