@@ -21,6 +21,7 @@ module Codebeacon
         @tree_manager = ThreadLocalCallTreeManager.new(@trace_id)
         @metadata = TraceMetadata.new(name:, description:, caller_location:, trigger_type:, tracer_version: Codebeacon::Tracer::VERSION)
         @skip_cache = { nil => true } # nil paths are always skipped - caching it here prevents an extra nil check
+        @block_caller_stack_walk_limit = Configuration::BLOCK_CALLER_STACK_WALK_LIMIT
       end
 
       def name=(new_name)
@@ -108,24 +109,54 @@ module Codebeacon
       end
 
       def trace_b_call
+        # The following magic number gets us the caller method of the current block.
+        #   The first two callers are blocks within this tracer.
+        #   The next caller is actually the block itself (I don't know why - I'm surprised this is already on the stack)
+        #   The 4th caller (0 index: 3) is the calling method at least in the case of C calls.
+        block_caller_depth = 3
         trace(:b_call) do |tp, out_of_bounds|
+          first_caller = nil
           if !tp.method_id.nil?
-            # This is a counter intuitive and likely not a robust solution.
-            # I believe the method_id is the method_id where the block is defined, but I'm writing this comment long after I actually developed this solution and honestly don't remember for sure
-            # When blocks are defined at the class level, like for rails scopes, the method_id will be nil and calls to this will be explicitly traced as an independent node.
-            # When defined in a method and called within that method, I have chosen to hide this block call from the trace and slurp its children directly into its parent.
-            # The same thing should happen if the block is called in a method other than its defined method.
-            # For precision, these should eventually be traced as an independent node, but
-            #   1. It's not actually currently that useful
-            #   2. I don't have filtering in vscode to turn it on and off
-            #   3. I don't have the actual name of the method that the block was passed into, so I either need to have a blank "block" node or repeat the method_id again - both look weird.
-            # For example:
-            #    When an "each" block is called in a method called "mymethod", the method_id is actually the name of the containing "mymethod" method.
-            #    The each method call (and all of the built ins) are intentionally not traced because these are defined outside of the root dir project.
-            #    If each calls "anothermethod" and iterates 10 times, the trace will show 10 "anothermethod" calls directly under "mymethod".
+            # Check the immediate caller first
+            immediate_loc = caller_locations(block_caller_depth, 1).first
+            if immediate_loc
+              immediate_path = immediate_loc.absolute_path || immediate_loc.path
+              immediate_is_skipped = @skip_cache.key?(immediate_path) ? @skip_cache[immediate_path] : skip_methods?(immediate_path)
 
-            @skip_logger.increment()
-            next
+              if immediate_is_skipped
+                # Immediate caller is library code - walk back to find the boundary
+                depth = block_caller_depth
+                max_depth = block_caller_depth + @block_caller_stack_walk_limit
+                last_skipped_caller = nil
+                found_boundary = false
+
+                while depth < max_depth
+                  loc = caller_locations(depth, 1).first
+                  break unless loc  # End of stack reached
+
+                  # Check if this caller's path is skipped
+                  path = loc.absolute_path || loc.path
+                  is_skipped = @skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path)
+
+                  if is_skipped
+                    # Keep track of this skipped caller - it might be the boundary
+                    last_skipped_caller = loc
+                    depth += 1
+                  else
+                    # Hit non-skipped code - we found the boundary!
+                    found_boundary = true
+                    break
+                  end
+                end
+
+                # Only use last_skipped_caller if we found a proper boundary
+                # If we hit max_depth without finding boundary, first_caller stays nil
+                first_caller = last_skipped_caller if found_boundary
+              else
+                # Immediate caller is app code - use it directly
+                first_caller = immediate_loc
+              end
+            end
           end
           current_node = call_tree.current_node
           if out_of_bounds
@@ -135,9 +166,11 @@ module Codebeacon
           end
 
           if current_node.library_depth > 0 && current_node.library_exit_info
-            NodeBuilder.trace_block_call_with_callback(call_tree, tp, "", current_node.library_exit_info)
+            node = NodeBuilder.trace_block_call_with_callback(call_tree, tp, "", current_node.library_exit_info)
+            node.caller = first_caller&.label
           else
-            NodeBuilder.trace_block_call(call_tree, tp, "")
+            node = NodeBuilder.trace_block_call(call_tree, tp, "")
+            node.caller = first_caller&.label
           end
 
           @progress_logger.increment()
@@ -158,9 +191,6 @@ module Codebeacon
 
       def trace_b_return
         trace(:b_return) do |tp, out_of_bounds|
-          if !tp.method_id.nil?
-            next
-          end
           if out_of_bounds
             track_library_decrement(call_tree.current_node, tp.path)
           else

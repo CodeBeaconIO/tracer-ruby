@@ -16,7 +16,7 @@ module Codebeacon
 
         # Add optional fields based on show array
         if show.include?(:caller)
-          output += caller.empty? ? "" : " [caller: #{caller}]"
+          output += (caller.nil? || caller.empty?) ? "" : " [caller: #{caller}]"
         end
 
         if show.include?(:callback_info)

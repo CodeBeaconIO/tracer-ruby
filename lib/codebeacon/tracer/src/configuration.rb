@@ -15,6 +15,7 @@ module Codebeacon
       MAX_CALL_COUNT = 100000000
       MAX_DEPTH = 99999
       SERIALIZATION_TIMEOUT_MS = 10
+      BLOCK_CALLER_STACK_WALK_LIMIT = 25
 
       attr_accessor :sync_mode
       attr_reader :exclude_paths
