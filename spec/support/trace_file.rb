@@ -1,15 +1,16 @@
 class TraceFile
   attr_reader :file_path, :klass
 
-  def initialize(custom_contents)
+  def initialize(custom_contents, class_name: nil)
     @rand_str = next_random_integer_string
-    @class_name = "SimpleClass#{@rand_str}"
-    @file_path = "./spec/tmp/fixtures/#{@class_name.downcase}.rb"
-    create_file(custom_contents)
+    @class_name = class_name || "SimpleClass#{@rand_str}"
+    @file_path = "#{base_directory}/#{file_name}"
+    contents_to_write = class_name ? custom_contents : custom_contents.gsub("CLASS_NAME", @class_name)
+    create_file(contents_to_write)
   end
 
-  def self.load!(custom_contents)
-    tf = new(custom_contents)
+  def self.load!(custom_contents, class_name: nil)
+    tf = new(custom_contents, class_name: class_name)
     tf.require_file
     return tf
   end
@@ -24,12 +25,40 @@ class TraceFile
     @klass = Object.const_get(@class_name)
   end
 
-  private def next_random_integer_string
+  protected
+
+  def base_directory
+    "./spec/tmp/fixtures"
+  end
+
+  def file_name
+    "#{@class_name.downcase}.rb"
+  end
+
+  private
+
+  def next_random_integer_string
     rand.to_s[2..]
   end
 
-  private def create_file(custom_contents)
+  def create_file(contents)
     FileUtils.mkdir_p(File.dirname(@file_path))
-    File.write(@file_path, custom_contents.gsub("CLASS_NAME", @class_name))
+    File.write(@file_path, contents)
+  end
+end
+
+class LibraryFile < TraceFile
+  def self.dir
+    "./spec/tmp/fixtures/library"
+  end
+
+  protected
+
+  def base_directory
+    self.class.dir
+  end
+
+  def file_name
+    "library_#{@rand_str}.rb"
   end
 end
