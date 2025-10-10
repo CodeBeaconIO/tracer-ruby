@@ -6,6 +6,7 @@ require "debug"
 require_relative 'support/trace_file'
 require_relative 'support/cannot_inspect'
 require_relative 'support/cannot_to_s'
+require_relative 'support/tree_node_extensions'
 
 Codebeacon::Tracer.config.debug = true
 Codebeacon::Tracer.config.sync_mode = true # Run persistence synchronously for tests
