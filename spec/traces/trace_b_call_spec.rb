@@ -368,6 +368,51 @@ RSpec.describe Codebeacon::Tracer do
       end
     end
 
+    context 'when using class instance variable block' do
+      let(:library_class) { "ClassVarLibrary" }
+      let(:library_file_contents) { <<-RUBY }
+        class ClassVarLibrary
+          def self.execute(&block)
+            yield if block_given?
+          end
+        end
+      RUBY
+
+      let(:file_contents) { <<-RUBY }
+        class CLASS_NAME
+          @my_block = proc { "class instance variable block" }
+
+          def self.class_block
+            @my_block
+          end
+
+          def self.use_class_block
+            ClassVarLibrary.execute(&class_block)
+          end
+        end
+      RUBY
+
+      it 'traces class instance variable block with correct caller', :aggregate_failures do
+        @trace_b_call.enable
+          @trace_file.klass.use_class_block
+        @trace_b_call.disable
+
+        root = @tracer.call_tree.root
+
+        block_child = root.children.first
+        expect(block_child).not_to be_nil
+        expect(block_child.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(block_child.line).to eq(2)  # Line where @my_block proc is defined in file_contents
+        expect(block_child.method).to eq(nil)  # Anonymous proc has no method_id
+        expect(block_child.depth).to eq(1)
+        expect(block_child.caller).to eq("execute")
+        expect(block_child.gem_entry).to eq(false)
+        expect(block_child.parent).to eq(root)
+        expect(block_child.block).to be(true)
+        expect(block_child.node_source.name).to eq("app")
+      end
+    end
+
     context 'when stack exhaustion occurs (entire stack is library code)' do
       let(:library_class) { "DeepLibraryStack" }
       let(:library_file_contents) {
@@ -524,7 +569,7 @@ RSpec.describe Codebeacon::Tracer do
           expect(node.line).to eq(calling_line)
           expect(node.method).to eq(nil)
           expect(node.depth).to eq(1)
-          expect(node.caller).to be_nil
+          expect(node.caller).to eq("hello_world")
           expect(node.gem_entry).to eq(false)
           expect(node.parent).to eq(root)
           expect(node.block).to eq(true)

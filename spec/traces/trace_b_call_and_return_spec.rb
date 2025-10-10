@@ -324,7 +324,7 @@ RSpec.describe Codebeacon::Tracer do
           expect(node.line).to eq(calling_line)
           expect(node.method).to eq(nil)
           expect(node.depth).to eq(1)
-          expect(node.caller).to be_nil
+          expect(node.caller).to eq("hello_world")
           expect(node.gem_entry).to eq(false)
           expect(node.parent).to eq(root)
           expect(node.block).to eq(true)

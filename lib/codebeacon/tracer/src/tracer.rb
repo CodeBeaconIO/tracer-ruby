@@ -116,46 +116,44 @@ module Codebeacon
         block_caller_depth = 3
         trace(:b_call) do |tp, out_of_bounds|
           first_caller = nil
-          if !tp.method_id.nil?
-            # Check the immediate caller first
-            immediate_loc = caller_locations(block_caller_depth, 1).first
-            if immediate_loc
-              immediate_path = immediate_loc.absolute_path || immediate_loc.path
-              immediate_is_skipped = @skip_cache.key?(immediate_path) ? @skip_cache[immediate_path] : skip_methods?(immediate_path)
+          # Check the immediate caller first
+          immediate_loc = caller_locations(block_caller_depth, 1).first
+          if immediate_loc
+            immediate_path = immediate_loc.absolute_path || immediate_loc.path
+            immediate_is_skipped = @skip_cache.key?(immediate_path) ? @skip_cache[immediate_path] : skip_methods?(immediate_path)
 
-              if immediate_is_skipped
-                # Immediate caller is library code - walk back to find the boundary
-                depth = block_caller_depth
-                max_depth = block_caller_depth + @block_caller_stack_walk_limit
-                last_skipped_caller = nil
-                found_boundary = false
+            if immediate_is_skipped
+              # Immediate caller is library code - walk back to find the boundary
+              depth = block_caller_depth
+              max_depth = block_caller_depth + @block_caller_stack_walk_limit
+              last_skipped_caller = nil
+              found_boundary = false
 
-                while depth < max_depth
-                  loc = caller_locations(depth, 1).first
-                  break unless loc  # End of stack reached
+              while depth < max_depth
+                loc = caller_locations(depth, 1).first
+                break unless loc  # End of stack reached
 
-                  # Check if this caller's path is skipped
-                  path = loc.absolute_path || loc.path
-                  is_skipped = @skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path)
+                # Check if this caller's path is skipped
+                path = loc.absolute_path || loc.path
+                is_skipped = @skip_cache.key?(path) ? @skip_cache[path] : skip_methods?(path)
 
-                  if is_skipped
-                    # Keep track of this skipped caller - it might be the boundary
-                    last_skipped_caller = loc
-                    depth += 1
-                  else
-                    # Hit non-skipped code - we found the boundary!
-                    found_boundary = true
-                    break
-                  end
+                if is_skipped
+                  # Keep track of this skipped caller - it might be the boundary
+                  last_skipped_caller = loc
+                  depth += 1
+                else
+                  # Hit non-skipped code - we found the boundary!
+                  found_boundary = true
+                  break
                 end
-
-                # Only use last_skipped_caller if we found a proper boundary
-                # If we hit max_depth without finding boundary, first_caller stays nil
-                first_caller = last_skipped_caller if found_boundary
-              else
-                # Immediate caller is app code - use it directly
-                first_caller = immediate_loc
               end
+
+              # Only use last_skipped_caller if we found a proper boundary
+              # If we hit max_depth without finding boundary, first_caller stays nil
+              first_caller = last_skipped_caller if found_boundary
+            else
+              # Immediate caller is app code - use it directly
+              first_caller = immediate_loc
             end
           end
           current_node = call_tree.current_node
