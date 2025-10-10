@@ -368,6 +368,52 @@ RSpec.describe Codebeacon::Tracer do
       end
     end
 
+    context 'when instance variable block is defined in one method and called in another' do
+      let(:library_class) { "InstanceVarLibrary" }
+      let(:library_file_contents) { <<-RUBY }
+        class InstanceVarLibrary
+          def self.execute(&block)
+            yield if block_given?
+          end
+        end
+      RUBY
+
+      let(:file_contents) { <<-RUBY }
+        class CLASS_NAME
+          def define_proc
+            @my_proc = proc { "instance variable proc" }
+          end
+
+          def call_stored_proc
+            InstanceVarLibrary.execute(&@my_proc)
+          end
+        end
+      RUBY
+
+      it 'traces instance variable proc with method as the defining method', :aggregate_failures do
+        obj = @trace_file.klass.new
+        obj.define_proc
+
+        @trace_b_call.enable
+          obj.call_stored_proc
+        @trace_b_call.disable
+
+        root = @tracer.call_tree.root
+
+        block_child = root.children.first
+        expect(block_child).not_to be_nil
+        expect(block_child.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(block_child.line).to eq(3)  # Line where @my_proc proc is defined in define_proc
+        expect(block_child.method).to eq(:define_proc)  # Method where proc was defined, not where it was called
+        expect(block_child.depth).to eq(1)
+        expect(block_child.caller).to eq("execute")
+        expect(block_child.gem_entry).to eq(false)
+        expect(block_child.parent).to eq(root)
+        expect(block_child.block).to be(true)
+        expect(block_child.node_source.name).to eq("app")
+      end
+    end
+
     context 'when using class instance variable block' do
       let(:library_class) { "ClassVarLibrary" }
       let(:library_file_contents) { <<-RUBY }

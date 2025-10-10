@@ -59,6 +59,167 @@ RSpec.describe Codebeacon::Tracer do
       end
     end
 
+    context 'when multiple blocks are passed to different library methods' do
+      let(:library_class) { "DualMethodLibrary" }
+      let(:library_file_contents) { <<-RUBY }
+        class DualMethodLibrary
+          def self.execute_first(&block)
+            yield if block_given?
+          end
+
+          def self.execute_second(&block)
+            yield if block_given?
+          end
+        end
+      RUBY
+
+      let(:file_contents) { <<-RUBY }
+        class CLASS_NAME
+          def method_with_two_blocks
+            first_block = proc { "first block" }
+            second_block = proc { "second block" }
+            DualMethodLibrary.execute_first(&first_block)
+            DualMethodLibrary.execute_second(&second_block)
+          end
+        end
+      RUBY
+
+      it 'traces both blocks with correct caller attribution', :aggregate_failures do
+        obj = @trace_file.klass.new
+
+        @trace_b_call.enable
+        @trace_b_return.enable
+          obj.method_with_two_blocks
+        @trace_b_call.disable
+        @trace_b_return.disable
+
+        root = @tracer.call_tree.root
+        root.simple_print(show: [:caller, :method, :line])
+
+        expect(root.children.length).to eq(2)
+
+        first_block = root.children[0]
+        expect(first_block).not_to be_nil
+        expect(first_block.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(first_block.line).to eq(3)  # Line where first_block is defined
+        expect(first_block.method).to eq(:method_with_two_blocks)
+        expect(first_block.depth).to eq(1)
+        expect(first_block.caller).to eq("execute_first")
+        expect(first_block.gem_entry).to eq(false)
+        expect(first_block.parent).to eq(root)
+        expect(first_block.block).to be(true)
+        expect(first_block.node_source.name).to eq("app")
+
+        second_block = root.children[1]
+        expect(second_block).not_to be_nil
+        expect(second_block.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(second_block.line).to eq(4)  # Line where second_block is defined
+        expect(second_block.method).to eq(:method_with_two_blocks)
+        expect(second_block.depth).to eq(1)
+        expect(second_block.caller).to eq("execute_second")
+        expect(second_block.gem_entry).to eq(false)
+        expect(second_block.parent).to eq(root)
+        expect(second_block.block).to be(true)
+        expect(second_block.node_source.name).to eq("app")
+      end
+    end
+
+    context 'when library method accepts two procs as parameters' do
+      let(:library_class) { "DualProcLibrary" }
+      let(:library_file_contents) { <<-RUBY }
+        class DualProcLibrary
+          def self.execute_both(first_proc, second_proc)
+            first_proc.call
+            second_proc.call
+          end
+        end
+      RUBY
+
+      let(:file_contents) { <<-RUBY }
+        class CLASS_NAME
+          def method_with_two_proc_params
+            first_proc = proc { "first proc param" }
+            second_proc = proc { "second proc param" }
+            DualProcLibrary.execute_both(first_proc, second_proc)
+          end
+        end
+      RUBY
+
+      it 'traces both proc calls with correct caller attribution', :aggregate_failures do
+        obj = @trace_file.klass.new
+
+        @trace_b_call.enable
+        @trace_b_return.enable
+          obj.method_with_two_proc_params
+        @trace_b_call.disable
+        @trace_b_return.disable
+
+        root = @tracer.call_tree.root
+        root.simple_print(show: [:caller, :method, :line])
+
+        expect(root.children.length).to eq(2)
+
+        first_proc = root.children[0]
+        expect(first_proc).not_to be_nil
+        expect(first_proc.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(first_proc.line).to eq(3)  # Line where first_proc is defined
+        expect(first_proc.method).to eq(:method_with_two_proc_params)
+        expect(first_proc.depth).to eq(1)
+        expect(first_proc.caller).to eq("execute_both")  # Called from within library method
+        expect(first_proc.gem_entry).to eq(false)
+        expect(first_proc.parent).to eq(root)
+        expect(first_proc.block).to be(true)
+        expect(first_proc.node_source.name).to eq("app")
+
+        second_proc = root.children[1]
+        expect(second_proc).not_to be_nil
+        expect(second_proc.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(second_proc.line).to eq(4)  # Line where second_proc is defined
+        expect(second_proc.method).to eq(:method_with_two_proc_params)
+        expect(second_proc.depth).to eq(1)
+        expect(second_proc.caller).to eq("execute_both")  # Same caller for both
+        expect(second_proc.gem_entry).to eq(false)
+        expect(second_proc.parent).to eq(root)
+        expect(second_proc.block).to be(true)
+        expect(second_proc.node_source.name).to eq("app")
+      end
+    end
+
+    context 'when block is defined and called directly with .call' do
+      let(:file_contents) { <<-RUBY }
+        class CLASS_NAME
+          def method_with_direct_call
+            my_block = proc { "directly called" }
+            my_block.call
+          end
+        end
+      RUBY
+
+      it 'traces the block call with all attributes', :aggregate_failures do
+        obj = @trace_file.klass.new
+
+        @trace_b_call.enable
+        @trace_b_return.enable
+          obj.method_with_direct_call
+        @trace_b_call.disable
+        @trace_b_return.disable
+
+        root = @tracer.call_tree.root
+
+        block_child = root.children.first
+        expect(block_child).not_to be_nil
+        expect(block_child.file).to eq(File.absolute_path(@trace_file.file_path))
+        expect(block_child.line).to eq(3)  # Line where my_block proc is defined
+        expect(block_child.method).to eq(:method_with_direct_call)
+        expect(block_child.depth).to eq(1)
+        expect(block_child.caller).to eq("method_with_direct_call")  # Enclosing method when .call is in same method
+        expect(block_child.gem_entry).to eq(false)
+        expect(block_child.parent).to eq(root)
+        expect(block_child.block).to be(true)
+        expect(block_child.node_source.name).to eq("app")
+      end
+    end
+
     context 'when block is passed through mixed library and app methods' do
       let(:library_class) { "MixedLibraryYielder" }
       let(:library_file_contents) { <<-RUBY }
