@@ -4,6 +4,9 @@ require 'spec_helper'
 require 'tempfile'
 
 RSpec.describe "Boundary Caller Tracking Integration" do
+  let(:library_code) { nil }
+  let(:library_class) { nil }
+
   before(:each) do
     @db = SQLite3::Database.new(":memory:")
     Codebeacon::Tracer::TreeNodeMapper.create_table(@db)
@@ -14,372 +17,328 @@ RSpec.describe "Boundary Caller Tracking Integration" do
     Codebeacon::Tracer::NodeBuilder.clear_caches
     Codebeacon::Tracer.config.dry_run = true
 
-    # Setup configuration to load exclude paths
+    # "setup" is called primarily to load default exclude paths
     Codebeacon::Tracer.config.setup
+    Codebeacon::Tracer.config.exclude_paths << File.absolute_path(LibraryFile.dir)
 
-    # Create a temporary directory for "library" code
-    @lib_dir = Dir.mktmpdir("test_library")
-
-    # Add to exclude paths to simulate library code
-    Codebeacon::Tracer.config.exclude_paths << @lib_dir
+    if library_code
+      @library_file = LibraryFile.load!(library_code, class_name: library_class)
+    end
   end
 
   after(:each) do
-    # Clean up temp directory
-    FileUtils.rm_rf(@lib_dir) if @lib_dir && Dir.exist?(@lib_dir)
-
-    # Remove from exclude paths
-    Codebeacon::Tracer.config.exclude_paths.delete(@lib_dir) if @lib_dir
+    # Clean up library file
+    @library_file&.cleanup
   end
 
-  # Helper to create a "library" file that will be excluded from tracing
-  def create_library_file(name, code)
-    path = File.join(@lib_dir, "#{name}.rb")
-    File.write(path, code)
-    load path
-    path
+  def collect_callback_nodes(root)
+    callback_nodes = []
+    visit_nodes = ->(node) do
+      callback_nodes << node if node.block && node.callback_info
+      node.children.each { |child| visit_nodes.call(child) }
+    end
+    visit_nodes.call(root)
+    callback_nodes
+  end
+
+  # Helper to execute code with tracing and return the call tree
+  def trace_execution(name, &block)
+    tracer = Codebeacon::Tracer::Tracer.new(name: name)
+    call_tree = nil
+    tracer.enable_traces do
+      block.call
+      call_tree = tracer.call_tree
+    end
+    call_tree
   end
 
   describe "Real library callback detection" do
-    it "detects callbacks from simulated library iterator" do
-      # Create a "library" file with an iterator method
-      lib_path = create_library_file("test_iterator", <<~RUBY)
-        module TestLibrary
-          def self.each_item(items, &block)
-            items.each { |item| block.call(item) }
+    context "when library calls back to app code" do
+      let(:library_class) { "TestLibrary" }
+      let(:library_code) {
+        <<~RUBY
+          module TestLibrary
+            def self.each_item(items, &block)
+              items.each { |item| block.call(item) }
+            end
+
+            # Negative test: alias exists but is not used, so outgoing_method_as_called should be nil
+            singleton_class.send(:alias_method, :iterate_items, :each_item)
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def process_items
+            items = [1]
+            TestLibrary.each_item(items) do |item|
+              process_single_item(item)
+            end
           end
 
-          # Negative test: alias exists but is not used, so outgoing_method_as_called should be nil
-          singleton_class.send(:alias_method, :iterate_items, :each_item)
-        end
-      RUBY
+          def process_items_with_alias
+            items = [1]
+            TestLibrary.iterate_items(items) do |item|
+              process_single_item(item)
+            end
+          end
 
-      # Create test class with methods that will be traced
-      test_class = Class.new do
-        def process_items
-          items = [1, 2, 3]
-          TestLibrary.each_item(items) do |item|
-            process_single_item(item)
+          def process_single_item(item)
+            item * 2
           end
         end
+      }
 
-        def process_single_item(item)
-          item * 2
+      it "detects callbacks from simulated library iterator" do
+        call_tree = trace_execution("test_library_iterator") do
+          instance = test_class.new
+          instance.process_items
+        end
+
+        callback_nodes = collect_callback_nodes(call_tree.root)
+
+        expect(callback_nodes.length).to eq(1)
+        callback_nodes.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.callback_info[:outgoing_method]).to eq("each_item")
+          expect(node.callback_info[:outgoing_method_as_called]).to be_nil  # Not using alias
+          expect(node.children.length).to eq(1)
+          expect(node.children.first.method).to eq(:process_single_item)
+          expect(node.children.first.callback_info).to be_nil
         end
       end
 
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_library_iterator")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.process_items
-        call_tree = tracer.call_tree
-      end
-
-      callback_nodes = []
-      visit_nodes = ->(node) do
-        if node.block && node.callback_info
-          callback_nodes << node
+      it "tracks aliased method when alias is used" do
+        call_tree = trace_execution("test_library_iterator_alias") do
+          instance = test_class.new
+          instance.process_items_with_alias
         end
-        node.children.each { |child| visit_nodes.call(child) }
-      end
-      visit_nodes.call(call_tree.root)
 
-      expect(callback_nodes.length).to eq(3)
-      callback_nodes.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.callback_info[:outgoing_method]).to eq("each_item")
-        expect(node.callback_info[:outgoing_method_as_called]).to be_nil  # Not using alias
-        expect(node.children.length).to eq(1)
-        expect(node.children.first.method).to eq(:process_single_item)
-        expect(node.children.first.callback_info).to be_nil
+        callback_nodes = collect_callback_nodes(call_tree.root)
+
+        callback_nodes.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.callback_info[:outgoing_method]).to eq("each_item")  # Actual method
+          expect(node.callback_info[:outgoing_method_as_called]).to eq("iterate_items")  # Called via alias
+          expect(node.children.length).to eq(1)
+          expect(node.children.first.method).to eq(:process_single_item)
+          expect(node.children.first.callback_info).to be_nil
+        end
       end
     end
 
-    it "tracks aliased method names in outgoing_method_as_called" do
-      # Create library with aliased methods
-      lib_path = create_library_file("aliased_iterator", <<~RUBY)
-        module AliasedIterator
-          def self.process_each(items, &block)
-            items.each { |item| block.call(item) }
+    context "when using multiple library methods" do
+      let(:library_class) { "MultiIterator" }
+      let(:library_code) {
+        <<~RUBY
+          module MultiIterator
+            def self.transform(items, &block)
+              items.map { |item| block.call(item) }
+            end
+
+            def self.filter(items, &block)
+              items.select { |item| block.call(item) }
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def use_transform
+            MultiIterator.transform([1, 2, 3]) do |item|
+              double_value(item)
+            end
           end
 
-          # Create an alias
-          singleton_class.send(:alias_method, :each_item, :process_each)
-        end
-      RUBY
-
-      test_class = Class.new do
-        def process_with_alias
-          # Call using the alias name
-          AliasedIterator.each_item([1, 2]) do |item|
-            transform(item)
-          end
-        end
-
-        def transform(item)
-          item * 2
-        end
-      end
-
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_aliased_methods")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.process_with_alias
-        call_tree = tracer.call_tree
-      end
-
-      # Collect all callback blocks
-      callback_nodes = []
-      visit_nodes = ->(node) do
-        if node.block && node.callback_info
-          callback_nodes << node
-        end
-        node.children.each { |child| visit_nodes.call(child) }
-      end
-      visit_nodes.call(call_tree.root)
-
-      # Verify aliased method calls
-      expect(callback_nodes.length).to eq(2)
-      callback_nodes.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.callback_info[:outgoing_method]).to eq("process_each")  # Actual method
-        expect(node.callback_info[:outgoing_method_as_called]).to eq("each_item")  # Called as alias
-        expect(node.children.length).to eq(1)
-        expect(node.children.first.method).to eq(:transform)
-      end
-    end
-
-    it "assigns multiple callbacks to the correct nodes" do
-      # Create library with multiple iterator methods
-      create_library_file("multi_iterator", <<~RUBY)
-        module MultiIterator
-          def self.transform(items, &block)
-            items.map { |item| block.call(item) }
+          def use_filter
+            MultiIterator.filter([1, 2, 3, 4]) do |item|
+              is_even?(item)
+            end
           end
 
-          def self.filter(items, &block)
-            items.select { |item| block.call(item) }
+          def double_value(item)
+            item * 2
+          end
+
+          def is_even?(item)
+            item.even?
           end
         end
-      RUBY
+      }
 
-      test_class = Class.new do
-        def use_transform
-          MultiIterator.transform([1, 2, 3]) do |item|
-            double_value(item)
-          end
+      it "assigns multiple callbacks to the correct nodes" do
+        call_tree = trace_execution("test_multi_methods") do
+          instance = test_class.new
+          instance.use_transform
+          instance.use_filter
         end
 
-        def use_filter
-          MultiIterator.filter([1, 2, 3, 4]) do |item|
-            is_even?(item)
-          end
+        callback_nodes = collect_callback_nodes(call_tree.root)
+
+        # Separate callbacks by outgoing method
+        transform_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "transform" }
+        filter_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "filter" }
+
+        # Verify transform callbacks
+        expect(transform_callbacks.length).to eq(3)
+        transform_callbacks.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.children.length).to eq(1)
+          expect(node.children.first.method).to eq(:double_value)
         end
 
-        def double_value(item)
-          item * 2
+        # Verify filter callbacks
+        expect(filter_callbacks.length).to eq(4)
+        filter_callbacks.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.children.length).to eq(1)
+          expect(node.children.first.method).to eq(:is_even?)
         end
-
-        def is_even?(item)
-          item.even?
-        end
-      end
-
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_multi_methods")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.use_transform
-        instance.use_filter
-        call_tree = tracer.call_tree
-      end
-
-      # Collect all callback blocks
-      callback_nodes = []
-      visit_nodes = ->(node) do
-        if node.block && node.callback_info
-          callback_nodes << node
-        end
-        node.children.each { |child| visit_nodes.call(child) }
-      end
-      visit_nodes.call(call_tree.root)
-
-      # Separate callbacks by outgoing method
-      transform_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "transform" }
-      filter_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "filter" }
-
-      # Verify transform callbacks
-      expect(transform_callbacks.length).to eq(3)
-      transform_callbacks.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.children.length).to eq(1)
-        expect(node.children.first.method).to eq(:double_value)
-      end
-
-      # Verify filter callbacks
-      expect(filter_callbacks.length).to eq(4)
-      filter_callbacks.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.children.length).to eq(1)
-        expect(node.children.first.method).to eq(:is_even?)
       end
     end
   end
 
   describe "Nested callbacks" do
-    it "handles App → Library → App callback with library_depth tracking" do
-      create_library_file("nested_iterator", <<~RUBY)
-        module NestedIterator
-          def self.outer_each(items, &block)
-            items.each { |item| block.call(item) }
+    context "when app code calls library multiple times" do
+      let(:library_class) { "NestedIterator" }
+      let(:library_code) {
+        <<~RUBY
+          module NestedIterator
+            def self.outer_each(items, &block)
+              items.each { |item| block.call(item) }
+            end
+
+            def self.inner_each(items, &block)
+              items.each { |item| block.call(item) }
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def outer_method
+            NestedIterator.outer_each([1, 2]) do |outer_item|
+              process_outer(outer_item)
+            end
           end
 
-          def self.inner_each(items, &block)
-            items.each { |item| block.call(item) }
+          def process_outer(item)
+            NestedIterator.inner_each([3, 4]) do |inner_item|
+              process_inner(inner_item)
+            end
+          end
+
+          def process_inner(item)
+            item * 2
           end
         end
-      RUBY
+      }
 
-      test_class = Class.new do
-        def outer_method
-          NestedIterator.outer_each([1, 2]) do |outer_item|
-            process_outer(outer_item)
-          end
+      it "handles App → Library → App callback with library_depth tracking" do
+        call_tree = trace_execution("test_nested_callbacks") do
+          instance = test_class.new
+          instance.outer_method
         end
 
-        def process_outer(item)
-          NestedIterator.inner_each([3, 4]) do |inner_item|
-            process_inner(inner_item)
-          end
+        callback_nodes = collect_callback_nodes(call_tree.root)
+
+        # Separate outer and inner callback blocks
+        outer_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "outer_each" }
+        inner_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "inner_each" }
+
+        # Verify outer callbacks
+        expect(outer_callbacks.length).to eq(2)
+        outer_callbacks.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.children.length).to eq(1)
+          expect(node.children.first.method).to eq(:process_outer)
         end
 
-        def process_inner(item)
-          item * 2
+        # Verify inner callbacks (nested within process_outer)
+        expect(inner_callbacks.length).to eq(4)  # 2 outer iterations × 2 inner iterations
+        inner_callbacks.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.children.length).to eq(1)
+          expect(node.children.first.method).to eq(:process_inner)
+          # process_inner should NOT have callback_info (it's a child of callback)
+          expect(node.children.first.callback_info).to be_nil
         end
-      end
-
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_nested_callbacks")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.outer_method
-        call_tree = tracer.call_tree
-      end
-
-      # Collect all callback blocks
-      callback_nodes = []
-      visit_nodes = ->(node) do
-        if node.block && node.callback_info
-          callback_nodes << node
-        end
-        node.children.each { |child| visit_nodes.call(child) }
-      end
-      visit_nodes.call(call_tree.root)
-
-      # Separate outer and inner callback blocks
-      outer_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "outer_each" }
-      inner_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "inner_each" }
-
-      # Verify outer callbacks
-      expect(outer_callbacks.length).to eq(2)
-      outer_callbacks.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.children.length).to eq(1)
-        expect(node.children.first.method).to eq(:process_outer)
-      end
-
-      # Verify inner callbacks (nested within process_outer)
-      expect(inner_callbacks.length).to eq(4)  # 2 outer iterations × 2 inner iterations
-      inner_callbacks.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.children.length).to eq(1)
-        expect(node.children.first.method).to eq(:process_inner)
-        # process_inner should NOT have callback_info (it's a child of callback)
-        expect(node.children.first.callback_info).to be_nil
       end
     end
 
-    it "does not mark child calls inside callbacks as callbacks themselves" do
-      create_library_file("propagation_iterator", <<~RUBY)
-        module PropagationIterator
-          def self.each_item(items, &block)
-            items.each { |item| block.call(item) }
+    context "when callback has nested child calls" do
+      let(:library_class) { "PropagationIterator" }
+      let(:library_code) {
+        <<~RUBY
+          module PropagationIterator
+            def self.each_item(items, &block)
+              items.each { |item| block.call(item) }
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def process_items
+            PropagationIterator.each_item([1, 2]) do |item|
+              process_with_helper(item)
+            end
+          end
+
+          def process_with_helper(item)
+            helper_method(item)
+          end
+
+          def helper_method(item)
+            item * 2
           end
         end
-      RUBY
+      }
 
-      test_class = Class.new do
-        def process_items
-          PropagationIterator.each_item([1, 2]) do |item|
-            process_with_helper(item)
-          end
+      it "does not mark child calls inside callbacks as callbacks themselves" do
+        call_tree = trace_execution("test_callback_propagation") do
+          instance = test_class.new
+          instance.process_items
         end
 
-        def process_with_helper(item)
-          helper_method(item)
+        callback_nodes = collect_callback_nodes(call_tree.root)
+
+        # Verify callback blocks
+        expect(callback_nodes.length).to eq(2)
+        callback_nodes.each do |node|
+          expect(node.block).to be(true)
+          expect(node.callback_info).not_to be_nil
+          expect(node.callback_info[:outgoing_method]).to eq("each_item")
+
+          # Verify the immediate child (process_with_helper) has no callback_info
+          expect(node.children.length).to eq(1)
+          process_node = node.children.first
+          expect(process_node.method).to eq(:process_with_helper)
+          expect(process_node.callback_info).to be_nil
+
+          # Verify the nested child (helper_method) also has no callback_info
+          expect(process_node.children.length).to eq(1)
+          helper_node = process_node.children.first
+          expect(helper_node.method).to eq(:helper_method)
+          expect(helper_node.callback_info).to be_nil
         end
-
-        def helper_method(item)
-          item * 2
-        end
-      end
-
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_callback_propagation")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.process_items
-        call_tree = tracer.call_tree
-      end
-
-      # Collect all callback blocks
-      callback_nodes = []
-      visit_nodes = ->(node) do
-        if node.block && node.callback_info
-          callback_nodes << node
-        end
-        node.children.each { |child| visit_nodes.call(child) }
-      end
-      visit_nodes.call(call_tree.root)
-
-      # Verify callback blocks
-      expect(callback_nodes.length).to eq(2)
-      callback_nodes.each do |node|
-        expect(node.block).to be(true)
-        expect(node.callback_info).not_to be_nil
-        expect(node.callback_info[:outgoing_method]).to eq("each_item")
-
-        # Verify the immediate child (process_with_helper) has no callback_info
-        expect(node.children.length).to eq(1)
-        process_node = node.children.first
-        expect(process_node.method).to eq(:process_with_helper)
-        expect(process_node.callback_info).to be_nil
-
-        # Verify the nested child (helper_method) also has no callback_info
-        expect(process_node.children.length).to eq(1)
-        helper_node = process_node.children.first
-        expect(helper_node.method).to eq(:helper_method)
-        expect(helper_node.callback_info).to be_nil
       end
     end
   end
 
   describe "Error recovery" do
     it "handles exceptions raised while library_depth > 0" do
-      create_library_file("error_iterator", <<~RUBY)
+      library_file = LibraryFile.load!(<<~RUBY, class_name: "ErrorIterator")
         module ErrorIterator
           def self.each_with_error(items, &block)
             items.each { |item| block.call(item) }
@@ -415,12 +374,14 @@ RSpec.describe "Boundary Caller Tracking Integration" do
       # Verify the root node's library_depth is back to 0
       root = tracer.call_tree.root
       expect(root.library_depth).to eq(0)
+
+      library_file.cleanup
     end
   end
 
   describe "Thread safety" do
     it "maintains separate library_depth per thread" do
-      create_library_file("thread_iterator", <<~RUBY)
+      library_file = LibraryFile.load!(<<~RUBY, class_name: "ThreadIterator")
         module ThreadIterator
           def self.process_items(items, &block)
             items.each { |item| block.call(item) }
@@ -458,100 +419,108 @@ RSpec.describe "Boundary Caller Tracking Integration" do
 
       # After completion, library_depth should be 0
       expect(tracer.call_tree.root.library_depth).to eq(0)
+
+      library_file.cleanup
     end
   end
 
   describe "Database persistence" do
-    it "persists callback_info to boundary_callers table" do
-      create_library_file("db_iterator", <<~RUBY)
-        module DbIterator
-          def self.process_each(items, &block)
-            items.each { |item| block.call(item) }
+    context "when saving callback info" do
+      let(:library_class) { "DbIterator" }
+      let(:library_code) {
+        <<~RUBY
+          module DbIterator
+            def self.process_each(items, &block)
+              items.each { |item| block.call(item) }
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def process_items
+            DbIterator.process_each([1, 2]) do |item|
+              transform(item)
+            end
+          end
+
+          def transform(item)
+            item * 2
           end
         end
-      RUBY
+      }
 
-      test_class = Class.new do
-        def process_items
-          DbIterator.process_each([1, 2]) do |item|
-            transform(item)
-          end
+      it "persists callback_info to boundary_callers table" do
+        call_tree = trace_execution("test_db_persistence") do
+          instance = test_class.new
+          instance.process_items
         end
 
-        def transform(item)
-          item * 2
-        end
+        # Save tree to database
+        @persistence_manager.save_tree(call_tree.root)
+
+        # Query boundary_callers table
+        results = @db.execute("SELECT outgoing_method, outgoing_method_as_called FROM boundary_callers")
+
+        # Should have callback records
+        expect(results.length).to be > 0
+
+        # Verify callback info was persisted
+        callback_records = results.select { |r| r[0] == "process_each" }
+        expect(callback_records.length).to be > 0
       end
-
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_db_persistence")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.process_items
-        call_tree = tracer.call_tree
-      end
-
-      # Save tree to database
-      @persistence_manager.save_tree(call_tree.root)
-
-      # Query boundary_callers table
-      results = @db.execute("SELECT outgoing_method, outgoing_method_as_called FROM boundary_callers")
-
-      # Should have callback records
-      expect(results.length).to be > 0
-
-      # Verify callback info was persisted
-      callback_records = results.select { |r| r[0] == "process_each" }
-      expect(callback_records.length).to be > 0
     end
 
-    it "maintains foreign key relationships between treenodes and boundary_callers" do
-      create_library_file("fk_iterator", <<~RUBY)
-        module FkIterator
-          def self.map_items(items, &block)
-            items.map { |item| block.call(item) }
+    context "when verifying foreign key relationships" do
+      let(:library_class) { "FkIterator" }
+      let(:library_code) {
+        <<~RUBY
+          module FkIterator
+            def self.map_items(items, &block)
+              items.map { |item| block.call(item) }
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def use_map
+            FkIterator.map_items([1, 2]) do |item|
+              double_it(item)
+            end
+          end
+
+          def double_it(item)
+            item * 2
           end
         end
-      RUBY
+      }
 
-      test_class = Class.new do
-        def use_map
-          FkIterator.map_items([1, 2]) do |item|
-            double_it(item)
-          end
+      it "maintains foreign key relationships between treenodes and boundary_callers" do
+        call_tree = trace_execution("test_fk_relationships") do
+          instance = test_class.new
+          instance.use_map
         end
 
-        def double_it(item)
-          item * 2
-        end
+        # Save tree to database
+        @persistence_manager.save_tree(call_tree.root)
+
+        # Join treenodes and boundary_callers
+        # Blocks now have callback_info, not the methods called within them
+        results = @db.execute(<<-SQL)
+          SELECT tn.method, bc.outgoing_method
+          FROM treenodes tn
+          INNER JOIN boundary_callers bc ON tn.boundary_caller_id = bc.id
+          WHERE tn.block = 1
+        SQL
+
+        expect(results.length).to be > 0
+        # Verify the block has the correct callback info
+        map_callbacks = results.select { |r| r[1] == "map_items" }
+        expect(map_callbacks.length).to be > 0
       end
-
-      tracer = Codebeacon::Tracer::Tracer.new(name: "test_fk_relationships")
-      call_tree = nil
-
-      tracer.enable_traces do
-        instance = test_class.new
-        instance.use_map
-        call_tree = tracer.call_tree
-      end
-
-      # Save tree to database
-      @persistence_manager.save_tree(call_tree.root)
-
-      # Join treenodes and boundary_callers
-      # Blocks now have callback_info, not the methods called within them
-      results = @db.execute(<<-SQL)
-        SELECT tn.method, bc.outgoing_method
-        FROM treenodes tn
-        INNER JOIN boundary_callers bc ON tn.boundary_caller_id = bc.id
-        WHERE tn.block = 1
-      SQL
-
-      expect(results.length).to be > 0
-      # Verify the block has the correct callback info
-      map_callbacks = results.select { |r| r[1] == "map_items" }
-      expect(map_callbacks.length).to be > 0
     end
   end
 end
