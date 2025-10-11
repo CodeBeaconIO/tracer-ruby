@@ -48,6 +48,9 @@ RSpec.describe "Boundary Caller Tracking Integration" do
           def self.each_item(items, &block)
             items.each { |item| block.call(item) }
           end
+
+          # Negative test: alias exists but is not used, so outgoing_method_as_called should be nil
+          singleton_class.send(:alias_method, :iterate_items, :each_item)
         end
       RUBY
 
@@ -88,9 +91,67 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         expect(node.block).to be(true)
         expect(node.callback_info).not_to be_nil
         expect(node.callback_info[:outgoing_method]).to eq("each_item")
+        expect(node.callback_info[:outgoing_method_as_called]).to be_nil  # Not using alias
         expect(node.children.length).to eq(1)
         expect(node.children.first.method).to eq(:process_single_item)
         expect(node.children.first.callback_info).to be_nil
+      end
+    end
+
+    it "tracks aliased method names in outgoing_method_as_called" do
+      # Create library with aliased methods
+      lib_path = create_library_file("aliased_iterator", <<~RUBY)
+        module AliasedIterator
+          def self.process_each(items, &block)
+            items.each { |item| block.call(item) }
+          end
+
+          # Create an alias
+          singleton_class.send(:alias_method, :each_item, :process_each)
+        end
+      RUBY
+
+      test_class = Class.new do
+        def process_with_alias
+          # Call using the alias name
+          AliasedIterator.each_item([1, 2]) do |item|
+            transform(item)
+          end
+        end
+
+        def transform(item)
+          item * 2
+        end
+      end
+
+      tracer = Codebeacon::Tracer::Tracer.new(name: "test_aliased_methods")
+      call_tree = nil
+
+      tracer.enable_traces do
+        instance = test_class.new
+        instance.process_with_alias
+        call_tree = tracer.call_tree
+      end
+
+      # Collect all callback blocks
+      callback_nodes = []
+      visit_nodes = ->(node) do
+        if node.block && node.callback_info
+          callback_nodes << node
+        end
+        node.children.each { |child| visit_nodes.call(child) }
+      end
+      visit_nodes.call(call_tree.root)
+
+      # Verify aliased method calls
+      expect(callback_nodes.length).to eq(2)
+      callback_nodes.each do |node|
+        expect(node.block).to be(true)
+        expect(node.callback_info).not_to be_nil
+        expect(node.callback_info[:outgoing_method]).to eq("process_each")  # Actual method
+        expect(node.callback_info[:outgoing_method_as_called]).to eq("each_item")  # Called as alias
+        expect(node.children.length).to eq(1)
+        expect(node.children.first.method).to eq(:transform)
       end
     end
 
