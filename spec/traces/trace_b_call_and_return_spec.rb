@@ -94,7 +94,6 @@ RSpec.describe Codebeacon::Tracer do
         @trace_b_return.disable
 
         root = @tracer.call_tree.root
-        root.simple_print(show: [:caller, :method, :line])
 
         expect(root.children.length).to eq(2)
 
@@ -155,7 +154,6 @@ RSpec.describe Codebeacon::Tracer do
         @trace_b_return.disable
 
         root = @tracer.call_tree.root
-        root.simple_print(show: [:caller, :method, :line])
 
         expect(root.children.length).to eq(2)
 

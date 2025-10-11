@@ -65,7 +65,6 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         end
       end
 
-      # Trace the execution
       tracer = Codebeacon::Tracer::Tracer.new(name: "test_library_iterator")
       call_tree = nil
 
@@ -75,25 +74,27 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         call_tree = tracer.call_tree
       end
 
-      # Find the process_single_item nodes (called from library)
       callback_nodes = []
       visit_nodes = ->(node) do
-        if node.method == :process_single_item && node.callback_info
+        if node.block && node.callback_info
           callback_nodes << node
         end
         node.children.each { |child| visit_nodes.call(child) }
       end
       visit_nodes.call(call_tree.root)
 
-      # Verify callbacks were detected
-      expect(callback_nodes.length).to be > 0
+      expect(callback_nodes.length).to eq(3)
       callback_nodes.each do |node|
+        expect(node.block).to be(true)
         expect(node.callback_info).not_to be_nil
         expect(node.callback_info[:outgoing_method]).to eq("each_item")
+        expect(node.children.length).to eq(1)
+        expect(node.children.first.method).to eq(:process_single_item)
+        expect(node.children.first.callback_info).to be_nil
       end
     end
 
-    it "detects callbacks with different library method names" do
+    it "assigns multiple callbacks to the correct nodes" do
       # Create library with multiple iterator methods
       create_library_file("multi_iterator", <<~RUBY)
         module MultiIterator
@@ -139,29 +140,36 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         call_tree = tracer.call_tree
       end
 
-      # Find callback nodes
-      transform_callbacks = []
-      filter_callbacks = []
+      # Collect all callback blocks
+      callback_nodes = []
       visit_nodes = ->(node) do
-        if node.method == :double_value && node.callback_info
-          transform_callbacks << node
-        elsif node.method == :is_even? && node.callback_info
-          filter_callbacks << node
+        if node.block && node.callback_info
+          callback_nodes << node
         end
         node.children.each { |child| visit_nodes.call(child) }
       end
       visit_nodes.call(call_tree.root)
 
+      # Separate callbacks by outgoing method
+      transform_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "transform" }
+      filter_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "filter" }
+
       # Verify transform callbacks
-      expect(transform_callbacks.length).to be > 0
+      expect(transform_callbacks.length).to eq(3)
       transform_callbacks.each do |node|
-        expect(node.callback_info[:outgoing_method]).to eq("transform")
+        expect(node.block).to be(true)
+        expect(node.callback_info).not_to be_nil
+        expect(node.children.length).to eq(1)
+        expect(node.children.first.method).to eq(:double_value)
       end
 
       # Verify filter callbacks
-      expect(filter_callbacks.length).to be > 0
+      expect(filter_callbacks.length).to eq(4)
       filter_callbacks.each do |node|
-        expect(node.callback_info[:outgoing_method]).to eq("filter")
+        expect(node.block).to be(true)
+        expect(node.callback_info).not_to be_nil
+        expect(node.children.length).to eq(1)
+        expect(node.children.first.method).to eq(:is_even?)
       end
     end
   end
@@ -207,31 +215,38 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         call_tree = tracer.call_tree
       end
 
-      # Find callback nodes
-      outer_callbacks = []
-      inner_nodes = []
-
+      # Collect all callback blocks
+      callback_nodes = []
       visit_nodes = ->(node) do
-        if node.method == :process_outer && node.callback_info
-          outer_callbacks << node
-        elsif node.method == :process_inner
-          inner_nodes << node
+        if node.block && node.callback_info
+          callback_nodes << node
         end
         node.children.each { |child| visit_nodes.call(child) }
       end
       visit_nodes.call(call_tree.root)
 
-      # Verify outer callbacks are marked
-      expect(outer_callbacks.length).to be > 0
+      # Separate outer and inner callback blocks
+      outer_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "outer_each" }
+      inner_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "inner_each" }
+
+      # Verify outer callbacks
+      expect(outer_callbacks.length).to eq(2)
       outer_callbacks.each do |node|
-        expect(node.callback_info[:outgoing_method]).to eq("outer_each")
+        expect(node.block).to be(true)
+        expect(node.callback_info).not_to be_nil
+        expect(node.children.length).to eq(1)
+        expect(node.children.first.method).to eq(:process_outer)
       end
 
-      # Verify inner nodes exist (but are NOT marked as callbacks themselves,
-      # per design: children of callbacks don't propagate callback_info)
-      expect(inner_nodes.length).to be > 0
-      inner_nodes.each do |node|
-        expect(node.callback_info).to be_nil
+      # Verify inner callbacks (nested within process_outer)
+      expect(inner_callbacks.length).to eq(4)  # 2 outer iterations × 2 inner iterations
+      inner_callbacks.each do |node|
+        expect(node.block).to be(true)
+        expect(node.callback_info).not_to be_nil
+        expect(node.children.length).to eq(1)
+        expect(node.children.first.method).to eq(:process_inner)
+        # process_inner should NOT have callback_info (it's a child of callback)
+        expect(node.children.first.callback_info).to be_nil
       end
     end
 
@@ -269,31 +284,34 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         call_tree = tracer.call_tree
       end
 
-      # Find nodes
-      process_nodes = []
-      helper_nodes = []
-
+      # Collect all callback blocks
+      callback_nodes = []
       visit_nodes = ->(node) do
-        if node.method == :process_with_helper
-          process_nodes << node
-        elsif node.method == :helper_method
-          helper_nodes << node
+        if node.block && node.callback_info
+          callback_nodes << node
         end
         node.children.each { |child| visit_nodes.call(child) }
       end
       visit_nodes.call(call_tree.root)
 
-      # process_with_helper should be marked as callback
-      expect(process_nodes.length).to be > 0
-      process_nodes.each do |node|
+      # Verify callback blocks
+      expect(callback_nodes.length).to eq(2)
+      callback_nodes.each do |node|
+        expect(node.block).to be(true)
         expect(node.callback_info).not_to be_nil
         expect(node.callback_info[:outgoing_method]).to eq("each_item")
-      end
 
-      # helper_method should NOT be marked as callback (it's a child of callback)
-      expect(helper_nodes.length).to be > 0
-      helper_nodes.each do |node|
-        expect(node.callback_info).to be_nil
+        # Verify the immediate child (process_with_helper) has no callback_info
+        expect(node.children.length).to eq(1)
+        process_node = node.children.first
+        expect(process_node.method).to eq(:process_with_helper)
+        expect(process_node.callback_info).to be_nil
+
+        # Verify the nested child (helper_method) also has no callback_info
+        expect(process_node.children.length).to eq(1)
+        helper_node = process_node.children.first
+        expect(helper_node.method).to eq(:helper_method)
+        expect(helper_node.callback_info).to be_nil
       end
     end
   end
@@ -461,18 +479,18 @@ RSpec.describe "Boundary Caller Tracking Integration" do
       @persistence_manager.save_tree(call_tree.root)
 
       # Join treenodes and boundary_callers
+      # Blocks now have callback_info, not the methods called within them
       results = @db.execute(<<-SQL)
         SELECT tn.method, bc.outgoing_method
         FROM treenodes tn
         INNER JOIN boundary_callers bc ON tn.boundary_caller_id = bc.id
-        WHERE tn.method = 'double_it'
+        WHERE tn.block = 1
       SQL
 
       expect(results.length).to be > 0
-      results.each do |row|
-        expect(row[0]).to eq("double_it")
-        expect(row[1]).to eq("map_items")
-      end
+      # Verify the block has the correct callback info
+      map_callbacks = results.select { |r| r[1] == "map_items" }
+      expect(map_callbacks.length).to be > 0
     end
   end
 end
