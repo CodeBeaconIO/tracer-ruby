@@ -31,16 +31,6 @@ RSpec.describe "Boundary Caller Tracking Integration" do
     @library_file&.cleanup
   end
 
-  def collect_callback_nodes(root)
-    callback_nodes = []
-    visit_nodes = ->(node) do
-      callback_nodes << node if node.block && node.callback_info
-      node.children.each { |child| visit_nodes.call(child) }
-    end
-    visit_nodes.call(root)
-    callback_nodes
-  end
-
   # Helper to execute code with tracing and return the call tree
   def trace_execution(name, &block)
     tracer = Codebeacon::Tracer::Tracer.new(name: name)
@@ -96,7 +86,7 @@ RSpec.describe "Boundary Caller Tracking Integration" do
           instance.process_items
         end
 
-        callback_nodes = collect_callback_nodes(call_tree.root)
+        callback_nodes = call_tree.root.find_nodes(block: true, callback: true)
 
         expect(callback_nodes.length).to eq(1)
         callback_nodes.each do |node|
@@ -116,7 +106,7 @@ RSpec.describe "Boundary Caller Tracking Integration" do
           instance.process_items_with_alias
         end
 
-        callback_nodes = collect_callback_nodes(call_tree.root)
+        callback_nodes = call_tree.root.find_nodes(block: true, callback: true)
 
         callback_nodes.each do |node|
           expect(node.block).to be(true)
@@ -177,7 +167,7 @@ RSpec.describe "Boundary Caller Tracking Integration" do
           instance.use_filter
         end
 
-        callback_nodes = collect_callback_nodes(call_tree.root)
+        callback_nodes = call_tree.root.find_nodes(block: true, callback: true)
 
         # Separate callbacks by outgoing method
         transform_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "transform" }
@@ -247,7 +237,7 @@ RSpec.describe "Boundary Caller Tracking Integration" do
           instance.outer_method
         end
 
-        callback_nodes = collect_callback_nodes(call_tree.root)
+        callback_nodes = call_tree.root.find_nodes(block: true, callback: true)
 
         # Separate outer and inner callback blocks
         outer_callbacks = callback_nodes.select { |n| n.callback_info[:outgoing_method] == "outer_each" }
@@ -311,7 +301,7 @@ RSpec.describe "Boundary Caller Tracking Integration" do
           instance.process_items
         end
 
-        callback_nodes = collect_callback_nodes(call_tree.root)
+        callback_nodes = call_tree.root.find_nodes(block: true, callback: true)
 
         # Verify callback blocks
         expect(callback_nodes.length).to eq(2)
@@ -520,6 +510,102 @@ RSpec.describe "Boundary Caller Tracking Integration" do
         # Verify the block has the correct callback info
         map_callbacks = results.select { |r| r[1] == "map_items" }
         expect(map_callbacks.length).to be > 0
+      end
+    end
+  end
+
+  describe "Method callbacks" do
+    context "when library calls app method via method object" do
+      let(:library_class) { "MethodCallbackLibrary" }
+      let(:library_code) {
+        <<~RUBY
+          module MethodCallbackLibrary
+            def self.execute_method(method_obj, value)
+              method_obj.call(value)
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def process_with_method_callback
+            MethodCallbackLibrary.execute_method(method(:transform), 5)
+          end
+
+          def transform(value)
+            value * 2
+          end
+        end
+      }
+
+      it "detects method callbacks with callback_info" do
+        call_tree = trace_execution("test_method_callback") do
+          instance = test_class.new
+          instance.process_with_method_callback
+        end
+
+        transform_nodes = call_tree.root.find_nodes(block: false, method_name: :transform, callback: true)
+
+        expect(transform_nodes.length).to eq(1)
+        transform_nodes.each do |node|
+          expect(node.block).to be(false)
+          expect(node.callback_info).not_to be_nil
+          expect(node.callback_info[:outgoing_method]).to eq("execute_method")
+        end
+      end
+    end
+
+    context "when using observer pattern" do
+      let(:library_class) { "ObservableLibrary" }
+      let(:library_code) {
+        <<~RUBY
+          module ObservableLibrary
+            class Observable
+              def initialize
+                @observers = []
+              end
+
+              def add_observer(observer)
+                @observers << observer
+              end
+
+              def notify(data)
+                @observers.each { |obs| obs.update(data) }
+              end
+            end
+          end
+        RUBY
+      }
+
+      let(:test_class) {
+        Class.new do
+          def setup_observer
+            observable = ObservableLibrary::Observable.new
+            observable.add_observer(self)
+            observable.notify("test data")
+          end
+
+          def update(data)
+            data.upcase
+          end
+        end
+      }
+
+      it "detects observer method callbacks" do
+        call_tree = trace_execution("test_observer") do
+          instance = test_class.new
+          instance.setup_observer
+        end
+
+        update_nodes = call_tree.root.find_nodes(block: false, method_name: :update, callback: true)
+
+        expect(update_nodes.length).to eq(1)
+        update_nodes.each do |node|
+          expect(node.block).to be(false)
+          expect(node.callback_info).not_to be_nil
+          expect(node.callback_info[:outgoing_method]).to eq("notify")
+        end
       end
     end
   end
