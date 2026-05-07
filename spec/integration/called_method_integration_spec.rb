@@ -93,6 +93,7 @@ RSpec.describe "Called method integration" do
     allow(tp).to receive(:callee_id).and_return(:aliased_method)
     allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
     allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
+    allow(tp).to receive(:parameters).and_return([])
     
     # Mock TPKlass
     klass = double("TPKlass")
@@ -125,7 +126,8 @@ RSpec.describe "Called method integration" do
     allow(tp2).to receive(:method_id).and_return(:regular_method)
     allow(tp2).to receive(:callee_id).and_return(:regular_method)
     allow(tp2).to receive(:self).and_return(double("Object", object_id: 123))
-    
+    allow(tp2).to receive(:parameters).and_return([])
+
     allow(Codebeacon::Tracer::TPKlass).to receive(:for_tp).and_return(klass)
     allow(Codebeacon::Tracer::NodeSource).to receive(:find).and_return(nil)
     allow(Codebeacon::Tracer.config).to receive(:gem_path).and_return("")

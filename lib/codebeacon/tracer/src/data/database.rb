@@ -34,6 +34,7 @@ module Codebeacon
         TreeNodeMapper.create_table(db)
         NodeSourceMapper.create_table(db)
         BoundaryCallerMapper.create_table(db)
+        LocalVariableMapper.create_table(db)
       end
 
       def create_indexes
@@ -41,6 +42,7 @@ module Codebeacon
         TreeNodeMapper.create_indexes(db)
         NodeSourceMapper.create_indexes(db)
         BoundaryCallerMapper.create_indexes(db)
+        LocalVariableMapper.create_indexes(db)
       end
 
       def self.trim_db_files(config)

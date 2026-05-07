@@ -19,7 +19,8 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:callee_id).and_return(:aliased_method)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
       allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
-      
+      allow(tp).to receive(:parameters).and_return([])
+
       # Mock TPKlass
       klass = double("TPKlass")
       allow(klass).to receive(:tp_class).and_return("TestClass")
@@ -53,7 +54,8 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:callee_id).and_return(:regular_method)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
       allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
-      
+      allow(tp).to receive(:parameters).and_return([])
+
       # Mock TPKlass
       klass = double("TPKlass")
       allow(klass).to receive(:tp_class).and_return("TestClass")
@@ -89,7 +91,8 @@ RSpec.describe Codebeacon::Tracer::NodeBuilder do
       allow(tp).to receive(:callee_id).and_return(:aliased_block)
       allow(tp).to receive(:self).and_return(double("Object", object_id: 123))
       allow(tp).to receive(:defined_class).and_return(double("DefinedClass", object_id: 456))
-      
+      allow(tp).to receive(:parameters).and_return([])
+
       # Mock TPKlass
       klass = double("TPKlass")
       allow(klass).to receive(:tp_class).and_return("TestClass")

@@ -102,6 +102,8 @@ module Codebeacon
           current_context.self_type = klass.type
           current_context.depth = call_tree.depth
 
+          record_args(current_context, tp)
+
           gem_entry = false
           if Codebeacon::Tracer.config.gem_path \
             && !Codebeacon::Tracer.config.gem_path.empty? \
@@ -112,6 +114,24 @@ module Codebeacon
           current_context.caller = ""
           
           current_context
+        end
+
+        private def record_args(current_context, tp)
+          parameters = tp.parameters
+          return current_context.locals = [] if parameters.empty?
+
+          binding_obj = tp.binding
+          current_context.locals = parameters.filter_map do |(_kind, name)|
+            next if name.nil?
+
+            begin
+              [name.to_s, binding_obj.local_variable_get(name)]
+            rescue StandardError
+              nil
+            end
+          end
+        rescue StandardError
+          current_context.locals = []
         end
       end
     end
