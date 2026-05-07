@@ -13,6 +13,8 @@ RSpec.describe "Boundary Caller Tracking Integration" do
     Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
+    Codebeacon::Tracer::CaptureMapper.create_table(@db)
+    Codebeacon::Tracer::CaptureMapper.create_indexes(@db)
     @persistence_manager = Codebeacon::Tracer::PersistenceManager.new(@db)
     Codebeacon::Tracer::NodeBuilder.clear_caches
     Codebeacon::Tracer.config.dry_run = true

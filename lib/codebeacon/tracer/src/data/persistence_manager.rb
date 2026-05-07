@@ -4,7 +4,7 @@ require_relative "tree_node_mapper"
 require_relative "node_source_mapper"
 require_relative "metadata_mapper"
 require_relative "boundary_caller_mapper"
-require_relative "local_variable_mapper"
+require_relative "capture_mapper"
 require_relative "type_detector"
 require_relative "safe_serializer"
 
@@ -17,7 +17,7 @@ module Codebeacon
         @node_source_mapper = NodeSourceMapper.new(database)
         @metadata_mapper = MetadataMapper.new(database)
         @boundary_caller_mapper = BoundaryCallerMapper.new(database)
-        @local_variable_mapper = LocalVariableMapper.new(database)
+        @capture_mapper = CaptureMapper.new(database)
         @progress_logger = Codebeacon::Tracer.logger.newProgressLogger("nodes persisted")
       end
 
@@ -92,14 +92,16 @@ module Codebeacon
           parent_id,
           tree_node.block,
           tree_node.node_source&.id,
-          return_type(tree_node),
-          return_value(tree_node),
           tree_node.has_children,
           boundary_caller_id
         )
 
         tree_node.locals.each do |local|
-          @local_variable_mapper.insert(local, node_id)
+          @capture_mapper.insert(local, node_id, var_type: "arg")
+        end
+
+        unless tree_node.method == :initialize
+          @capture_mapper.insert([nil, tree_node.return_value], node_id, var_type: "return")
         end
 
         return if tree_node.depth_truncated?
@@ -115,19 +117,6 @@ module Codebeacon
         # Continue with siblings and other nodes without crashing
       end
 
-      private
-
-      def return_type(node)
-        return nil if node.method == :initialize
-
-        node.return_value.class.name
-      end
-
-      def return_value(node)
-        return nil if node.method == :initialize
-
-        SafeSerializer.safe_inspect(node.return_value, Codebeacon::Tracer.config.max_value_length)
-      end
     end
   end
 end

@@ -5,6 +5,7 @@ require "fileutils"
 require_relative "tree_node_mapper"
 require_relative "node_source_mapper"
 require_relative "boundary_caller_mapper"
+require_relative "capture_mapper"
 
 module Codebeacon
   module Tracer
@@ -34,7 +35,7 @@ module Codebeacon
         TreeNodeMapper.create_table(db)
         NodeSourceMapper.create_table(db)
         BoundaryCallerMapper.create_table(db)
-        LocalVariableMapper.create_table(db)
+        CaptureMapper.create_table(db)
       end
 
       def create_indexes
@@ -42,7 +43,7 @@ module Codebeacon
         TreeNodeMapper.create_indexes(db)
         NodeSourceMapper.create_indexes(db)
         BoundaryCallerMapper.create_indexes(db)
-        LocalVariableMapper.create_indexes(db)
+        CaptureMapper.create_indexes(db)
       end
 
       def self.trim_db_files(config)

@@ -30,13 +30,11 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       parent_id = nil
       block = false
       node_source_id = 1
-      return_type = "String"
-      return_value = "test_return_value"
       has_children = true
 
       node_id = @mapper.insert(
-        file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, 
-        self_type, depth, caller, gem_entry, parent_id, block, node_source_id, return_type, return_value, has_children, nil
+        file, line, called_method, method, tp_class, tp_defined_class, tp_class_name,
+        self_type, depth, caller, gem_entry, parent_id, block, node_source_id, has_children, nil
       )
 
       expect(node_id).to be_a(Integer)
@@ -57,20 +55,18 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       expect(result[12]).to be_nil # parent_id
       expect(result[13]).to eq(0) # block as integer
       expect(result[14]).to eq(node_source_id)
-      expect(result[15]).to eq(return_type)
-      expect(result[16]).to eq(return_value)
-      expect(result[17]).to eq(1) # has_children as integer
+      expect(result[15]).to eq(1) # has_children as integer
     end
 
     it 'inserts a tree node with a parent' do
       parent_id = @mapper.insert(
-        "parent.rb", 1, "parent_called_method", "parent_method", "ParentClass", "ParentDefinedClass", 
-        "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, "Integer", nil, true, nil
+        "parent.rb", 1, "parent_called_method", "parent_method", "ParentClass", "ParentDefinedClass",
+        "ParentClassName", "Object", 0, "parent_caller", false, nil, false, nil, true, nil
       )
 
       child_id = @mapper.insert(
-        "child.rb", 2, "child_called_method", "child_method", "ChildClass", "ChildDefinedClass", 
-        "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, "String", "result", false, nil
+        "child.rb", 2, "child_called_method", "child_method", "ChildClass", "ChildDefinedClass",
+        "ChildClassName", "Object", 1, "child_caller", false, parent_id, false, nil, false, nil
       )
 
       result = @db.execute("SELECT parent_id FROM treenodes WHERE id = ?", child_id).first
@@ -79,13 +75,13 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
 
     it 'inserts a tree node with a called_method' do
       called_method_id = @mapper.insert(
-        "called_method.rb", 1, "called_method_called", "called_method_method", "CalledMethodClass", "CalledMethodDefinedClass", 
-        "CalledMethodClassName", "Object", 0, "called_method_caller", false, nil, false, nil, "Integer", nil, false, nil
+        "called_method.rb", 1, "called_method_called", "called_method_method", "CalledMethodClass", "CalledMethodDefinedClass",
+        "CalledMethodClassName", "Object", 0, "called_method_caller", false, nil, false, nil, false, nil
       )
 
       caller_id = @mapper.insert(
-        "caller.rb", 2, "caller_called_method", "caller_method", "CallerClass", "CallerDefinedClass", 
-        "CallerClassName", "Object", 1, "caller_caller", false, nil, false, nil, "String", "result", true, nil
+        "caller.rb", 2, "caller_called_method", "caller_method", "CallerClass", "CallerDefinedClass",
+        "CallerClassName", "Object", 1, "caller_caller", false, nil, false, nil, true, nil
       )
 
       result = @db.execute("SELECT called_method FROM treenodes WHERE id = ?", caller_id).first
@@ -94,13 +90,13 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
 
     it 'correctly stores has_children flag' do
       node_with_children = @mapper.insert(
-        "with_children.rb", 1, "method", "method", "Class", "Class", "ClassName", "Object", 0, "caller", 
-        false, nil, false, nil, "Integer", nil, true, nil
+        "with_children.rb", 1, "method", "method", "Class", "Class", "ClassName", "Object", 0, "caller",
+        false, nil, false, nil, true, nil
       )
 
       node_without_children = @mapper.insert(
-        "without_children.rb", 1, "method", "method", "Class", "Class", "ClassName", "Object", 0, "caller", 
-        false, nil, false, nil, "Integer", nil, false, nil
+        "without_children.rb", 1, "method", "method", "Class", "Class", "ClassName", "Object", 0, "caller",
+        false, nil, false, nil, false, nil
       )
 
       with_children_result = @db.execute("SELECT has_children FROM treenodes WHERE id = ?", node_with_children).first

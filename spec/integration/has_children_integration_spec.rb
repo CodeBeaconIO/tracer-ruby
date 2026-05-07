@@ -15,6 +15,8 @@ RSpec.describe "Has Children Integration" do
     Codebeacon::Tracer::NodeSourceMapper.create_indexes(db)
     Codebeacon::Tracer::BoundaryCallerMapper.create_table(db)
     Codebeacon::Tracer::BoundaryCallerMapper.create_indexes(db)
+    Codebeacon::Tracer::CaptureMapper.create_table(db)
+    Codebeacon::Tracer::CaptureMapper.create_indexes(db)
   end
 
   describe "has_children flag in complete tracing workflow" do

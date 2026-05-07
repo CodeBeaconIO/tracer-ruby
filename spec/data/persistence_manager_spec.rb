@@ -9,14 +9,17 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
     Codebeacon::Tracer::BoundaryCallerMapper.create_table(@db)
+    Codebeacon::Tracer::CaptureMapper.create_table(@db)
     Codebeacon::Tracer::TreeNodeMapper.create_indexes(@db)
+    Codebeacon::Tracer::CaptureMapper.create_indexes(@db)
   end
-  
+
   before(:each) do
     @db.execute("DELETE FROM treenodes")
     @db.execute("DELETE FROM node_sources")
     @db.execute("DELETE FROM metadata")
     @db.execute("DELETE FROM boundary_callers")
+    @db.execute("DELETE FROM captures")
     @persistence_manager = Codebeacon::Tracer::PersistenceManager.new(@db)
   end
 
@@ -100,8 +103,6 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
         anything,
         anything,
         anything,
-        anything,
-        anything,
         anything, # has_children parameter
         anything  # library_call_id parameter
       )
@@ -127,6 +128,58 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
       expect(result).not_to be_nil
       expect(result["method"]).to eq("test_method")
       expect(result["self_type"]).to eq("Class")
+    end
+
+    it 'writes a return capture for non-initialize methods' do
+      tree_node = Codebeacon::Tracer::TreeNode.new(
+        file: "test_file.rb",
+        line: 10,
+        method: "do_thing",
+        self_type: "Class",
+        return_value: 42
+      )
+
+      @persistence_manager.save_tree(tree_node)
+
+      rows = @db.execute("SELECT name, var_type, data_type, inspect FROM captures")
+      expect(rows.length).to eq(1)
+      row = rows.first
+      expect(row["name"]).to be_nil
+      expect(row["var_type"]).to eq("return")
+      expect(row["data_type"]).to eq("Integer")
+      expect(row["inspect"]).to eq("42")
+    end
+
+    it 'skips the return capture for :initialize' do
+      tree_node = Codebeacon::Tracer::TreeNode.new(
+        file: "test_file.rb",
+        line: 10,
+        method: :initialize,
+        self_type: "Class"
+      )
+
+      @persistence_manager.save_tree(tree_node)
+
+      count = @db.execute("SELECT COUNT(*) FROM captures").first[0]
+      expect(count).to eq(0)
+    end
+
+    it 'writes arg captures alongside the return capture' do
+      tree_node = Codebeacon::Tracer::TreeNode.new(
+        file: "test_file.rb",
+        line: 10,
+        method: "do_thing",
+        self_type: "Class",
+        locals: [["count", 7], ["greeting", "hello"]],
+        return_value: nil
+      )
+
+      @persistence_manager.save_tree(tree_node)
+
+      rows = @db.execute("SELECT name, var_type, data_type FROM captures ORDER BY id")
+      expect(rows.map { |r| r["var_type"] }).to eq(["arg", "arg", "return"])
+      expect(rows.map { |r| r["name"] }).to eq(["count", "greeting", nil])
+      expect(rows.map { |r| r["data_type"] }).to eq(["Integer", "String", "NilClass"])
     end
 
     it 'handles tree node with called_method that differs from method' do
