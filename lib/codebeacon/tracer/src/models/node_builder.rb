@@ -71,6 +71,7 @@ module Codebeacon
             current_context.return_value = "--Codebeacon::Tracer ERROR-- could not capture return value"
             previous_line = current_context.trace_status.previous_line
             current_context.return_value = tp.return_value
+            record_locals(current_context, tp)
           ensure
             call_tree.add_return()
           end
@@ -118,11 +119,29 @@ module Codebeacon
 
         private def record_args(current_context, tp)
           parameters = tp.parameters
-          return current_context.locals = [] if parameters.empty?
+          return current_context.args = [] if parameters.empty?
 
           binding_obj = tp.binding
-          current_context.locals = parameters.filter_map do |(_kind, name)|
+          current_context.args = parameters.filter_map do |(_kind, name)|
             next if name.nil?
+
+            begin
+              [name.to_s, binding_obj.local_variable_get(name)]
+            rescue StandardError
+              nil
+            end
+          end
+        rescue StandardError
+          current_context.args = []
+        end
+
+        private def record_locals(current_context, tp)
+          binding_obj = tp.binding
+          return current_context.locals = [] if binding_obj.nil?
+
+          arg_names = current_context.args.map { |(name, _)| name }
+          current_context.locals = binding_obj.local_variables.filter_map do |name|
+            next if arg_names.include?(name.to_s)
 
             begin
               [name.to_s, binding_obj.local_variable_get(name)]

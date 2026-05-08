@@ -170,7 +170,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
         line: 10,
         method: "do_thing",
         self_type: "Class",
-        locals: [["count", 7], ["greeting", "hello"]],
+        args: [["count", 7], ["greeting", "hello"]],
         return_value: nil
       )
 

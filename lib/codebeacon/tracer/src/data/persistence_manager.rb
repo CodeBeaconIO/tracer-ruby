@@ -96,12 +96,16 @@ module Codebeacon
           boundary_caller_id
         )
 
-        tree_node.locals.each do |local|
-          @capture_mapper.insert(local, node_id, var_type: "arg")
+        tree_node.args.each do |arg|
+          @capture_mapper.insert(arg, node_id, var_type: "arg")
         end
 
         unless tree_node.method == :initialize
           @capture_mapper.insert([nil, tree_node.return_value], node_id, var_type: "return")
+        end
+
+        tree_node.locals.each do |local|
+          @capture_mapper.insert(local, node_id, var_type: "local")
         end
 
         return if tree_node.depth_truncated?

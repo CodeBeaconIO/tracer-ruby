@@ -80,6 +80,36 @@ RSpec.describe Codebeacon::Tracer do
       end
     end
 
+    context 'with method-local variables at return' do
+      let(:file_contents) { <<-RUBY }
+        class CLASS_NAME
+          def hello_world(x)
+            x = x + 1
+            a = 10
+            b = "two"
+            a
+          end
+        end
+      RUBY
+
+      it 'records locals introduced in the method, excluding param names', :aggregate_failures do
+        root = @tracer.call_tree.root
+        obj = @trace_file.klass.new
+        root.args = [["x", 5]]
+
+        trace(@trace_return) { obj.hello_world(5) }
+
+        names = root.locals.map(&:first)
+        expect(names).to include("a", "b")
+        expect(names).not_to include("x")
+
+        a_value = root.locals.find { |(name, _)| name == "a" }&.last
+        b_value = root.locals.find { |(name, _)| name == "b" }&.last
+        expect(a_value).to eq(10)
+        expect(b_value).to eq("two")
+      end
+    end
+
     context 'when not in debug mode' do
       around do |example|
         original_debug = Codebeacon::Tracer.config.debug?
