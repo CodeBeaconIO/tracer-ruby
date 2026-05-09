@@ -66,14 +66,20 @@ module Codebeacon
         end
 
         def trace_return(call_tree, tp)
-          begin
-            current_context = call_tree.current_node
-            current_context.return_value = "--Codebeacon::Tracer ERROR-- could not capture return value"
-            previous_line = current_context.trace_status.previous_line
-            current_context.return_value = tp.return_value
-            record_locals(current_context, tp)
-          ensure
-            call_tree.add_return()
+          current_context = call_tree.current_node
+          if current_context.is_root?
+            initialize_caches
+            synth = call_tree.synthesize_pre_trace_return
+            populate_synth(synth, tp, block: tp.event == :b_return)
+          else
+            begin
+              current_context.return_value = "--Codebeacon::Tracer ERROR-- could not capture return value"
+              previous_line = current_context.trace_status.previous_line
+              current_context.return_value = tp.return_value
+              record_locals(current_context, tp)
+            ensure
+              call_tree.add_return()
+            end
           end
         end
 
@@ -115,6 +121,42 @@ module Codebeacon
           current_context.caller = ""
           
           current_context
+        end
+
+        
+        # Back-populates a synthetic TreeNode (created by CallTree.synthesize_pre_trace_return)
+        # for a return whose matching call wasn't observed — e.g. a thread that was
+        # mid-stack when tracing armed. Captures whatever the return-time TracePoint
+        # exposes: identity, defined_class, return_value, args and locals via binding.
+        # file/line refer to the return site, which differs from observed nodes whose
+        # line is the call site.
+        # Theoretically, this shouldn't be called often. Performance isn't is critical,
+        # so we can afford this method call. If it is called often, we *probably* have
+        # an error or at least it should be a rare edge case.
+        private def populate_synth(node, tp, block:)
+          node.block = block
+          node.file = @absolute_path_cache[tp.path] ||= File.absolute_path(tp.path)
+          if @node_source_cache.key?(tp.path)
+            node.node_source = @node_source_cache[tp.path]
+          else
+            node.node_source = @node_source_cache[tp.path] = NodeSource.find(tp.path)
+          end
+          node.line = tp.lineno
+          node.object_id = tp.self.object_id
+          node.method = tp.method_id
+          node.called_method = tp.callee_id if tp.callee_id != tp.method_id
+
+          klass = TPKlass.for_tp(tp)
+          node.tp_class = klass.tp_class.to_s
+          node.tp_defined_class = klass.defined_class
+          node.tp_class_name = klass.tp_class_name.to_s
+          node.self_type = klass.type
+
+          gem_path = Codebeacon::Tracer.config.gem_path
+          node.gem_entry = !!(gem_path && !gem_path.empty? && tp.path.start_with?(gem_path))
+          node.caller = ""
+          
+          node
         end
 
         private def record_args(current_context, tp)

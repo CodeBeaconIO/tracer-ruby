@@ -33,7 +33,7 @@ module Codebeacon
       #   @children = []
       # end
 
-      attr_accessor :file, :line, :method, :object_id, :tp_class, :tp_defined_class, :tp_class_name, :self_type, :depth, :caller, :gem_entry, :children, :parent, :block, :args, :locals, :return_value, :linevars, :node_source, :trace_status, :script, :backtrace_count, :backtrace_location, :script_binding, :script_self, :called_method, :has_children, :library_depth, :library_exit_info, :callback_info, :boundary_caller_id
+      attr_accessor :file, :line, :method, :object_id, :tp_class, :tp_defined_class, :tp_class_name, :self_type, :depth, :caller, :gem_entry, :children, :parent, :block, :args, :locals, :return_value, :linevars, :node_source, :trace_status, :script, :backtrace_count, :backtrace_location, :script_binding, :script_self, :called_method, :has_children, :library_depth, :library_exit_info, :callback_info, :boundary_caller_id, :synthetic
 
       def initialize(file: nil, line: nil, object_id: nil, method: nil, tp_class: nil, tp_defined_class: nil, tp_class_name: nil, self_type: nil, depth: 0, caller: "", gem_entry: false, parent: nil, block: false, args: [], return_value: nil, node_source: nil, script: false, called_method: nil)
         @file = file
@@ -67,6 +67,7 @@ module Codebeacon
         @library_exit_info = nil
         @callback_info = nil
         @boundary_caller_id = nil
+        @synthetic = false
       end
 
       def is_root?(); parent == nil; end

@@ -28,6 +28,17 @@ RSpec.describe Codebeacon::Tracer::TreeNode do
       node = Codebeacon::Tracer::TreeNode.new
       expect(node.has_children).to be false
     end
+
+    it 'defaults synthetic to false' do
+      node = Codebeacon::Tracer::TreeNode.new
+      expect(node.synthetic).to be false
+    end
+
+    it 'allows synthetic to be flipped on' do
+      node = Codebeacon::Tracer::TreeNode.new
+      node.synthetic = true
+      expect(node.synthetic).to be true
+    end
   end
 
   describe '#add_child' do

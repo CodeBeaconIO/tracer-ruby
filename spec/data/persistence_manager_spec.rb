@@ -104,7 +104,8 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
         anything,
         anything,
         anything, # has_children parameter
-        anything  # library_call_id parameter
+        anything, # library_call_id parameter
+        anything  # synthetic parameter
       )
       
       # Call the method

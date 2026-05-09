@@ -223,8 +223,7 @@ module Codebeacon
       end
 
       def local_methods_only?
-        # @local_methods_only
-        true
+        @local_methods_only
       end
 
       def local_methods_only=(value)

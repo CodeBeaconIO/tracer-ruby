@@ -11,8 +11,8 @@ module Codebeacon
         prepare_statement
       end
 
-      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, has_children, boundary_caller_id)
-        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, has_children ? 1 : 0, boundary_caller_id)
+      def insert(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry, parent_id, block, node_source_id, has_children, boundary_caller_id, synthetic = false)
+        @statement.execute(file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller, gem_entry ? 1 : 0, parent_id, block ? 1 : 0, node_source_id, has_children ? 1 : 0, boundary_caller_id, synthetic ? 1 : 0)
         @db.last_insert_row_id
       end
 
@@ -40,6 +40,7 @@ module Codebeacon
             node_source_id INTEGER,
             has_children INTEGER DEFAULT 0,
             boundary_caller_id INTEGER,
+            synthetic INTEGER NOT NULL DEFAULT 0,
             FOREIGN KEY (parent_id) REFERENCES treenodes(id),
             FOREIGN KEY (node_source_id) REFERENCES node_sources(id),
             FOREIGN KEY (boundary_caller_id) REFERENCES boundary_callers(id)
@@ -63,11 +64,11 @@ module Codebeacon
           INSERT INTO treenodes
           (
               file, line, called_method, method, tp_class, tp_defined_class, tp_class_name, self_type, depth, caller,
-              gemEntry, parent_id, block, node_source_id, has_children, boundary_caller_id
+              gemEntry, parent_id, block, node_source_id, has_children, boundary_caller_id, synthetic
           )
           VALUES
           (
-              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+              ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
         @statement = @db.prepare(sql)

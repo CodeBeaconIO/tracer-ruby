@@ -121,4 +121,75 @@ RSpec.describe Codebeacon::Tracer::CallTree do
       expect(call_tree.current_node).to eq(call_tree.root)
     end
   end
+
+  describe '#synthesize_pre_trace_return' do
+    it 'returns a freshly-built synthetic TreeNode' do
+      synth = call_tree.synthesize_pre_trace_return
+      expect(synth).to be_a(Codebeacon::Tracer::TreeNode)
+      expect(synth.synthetic).to be true
+    end
+
+    it 'inserts the synth as the only child of root and leaves current_node at root' do
+      synth = call_tree.synthesize_pre_trace_return
+      expect(call_tree.root.children).to eq([synth])
+      expect(synth.parent).to eq(call_tree.root)
+      expect(call_tree.current_node).to eq(call_tree.root)
+    end
+
+    it 're-parents existing root children under the synth' do
+      call_tree.add_call
+      observed = call_tree.current_node
+      call_tree.add_return # current back to root
+      expect(call_tree.root.children).to eq([observed])
+
+      synth = call_tree.synthesize_pre_trace_return
+
+      expect(call_tree.root.children).to eq([synth])
+      expect(synth.children).to eq([observed])
+      expect(observed.parent).to eq(synth)
+      expect(synth.has_children).to be true
+    end
+
+    it 'chains multiple synthetics' do
+      call_tree.add_call
+      call_tree.add_return
+      observed = call_tree.root.children.first
+
+      synth1 = call_tree.synthesize_pre_trace_return
+      synth2 = call_tree.synthesize_pre_trace_return
+
+      expect(call_tree.root.children).to eq([synth2])
+      expect(synth2.children).to eq([synth1])
+      expect(synth1.children).to eq([observed])
+    end
+
+    it 'increments synthetic_count without touching call_count or block_call_count' do
+      expect {
+        call_tree.synthesize_pre_trace_return
+      }.to change { call_tree.synthetic_count }.by(1)
+        .and change { call_tree.call_count }.by(0)
+        .and change { call_tree.block_call_count }.by(0)
+    end
+
+    it 'tags synth depth more negative for each successive synthesis' do
+      synth1 = call_tree.synthesize_pre_trace_return
+      synth2 = call_tree.synthesize_pre_trace_return
+      synth3 = call_tree.synthesize_pre_trace_return
+
+      expect(synth1.depth).to eq(-1)
+      expect(synth2.depth).to eq(-2)
+      expect(synth3.depth).to eq(-3)
+    end
+
+    it 'leaves observed-node depths untouched' do
+      call_tree.add_call
+      observed = call_tree.current_node
+      observed.depth = 1 # NodeBuilder normally stamps this; simulate
+      call_tree.add_return
+
+      call_tree.synthesize_pre_trace_return
+
+      expect(observed.depth).to eq(1)
+    end
+  end
 end

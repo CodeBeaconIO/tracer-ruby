@@ -93,7 +93,8 @@ module Codebeacon
           tree_node.block,
           tree_node.node_source&.id,
           tree_node.has_children,
-          boundary_caller_id
+          boundary_caller_id,
+          tree_node.synthetic
         )
 
         tree_node.args.each do |arg|

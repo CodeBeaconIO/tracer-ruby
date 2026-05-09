@@ -56,6 +56,16 @@ RSpec.describe Codebeacon::Tracer::TreeNodeMapper do
       expect(result[13]).to eq(0) # block as integer
       expect(result[14]).to eq(node_source_id)
       expect(result[15]).to eq(1) # has_children as integer
+      expect(result[17]).to eq(0) # synthetic defaults to 0
+    end
+
+    it 'stores the synthetic flag' do
+      synth_id = @mapper.insert(
+        "synth.rb", 1, nil, "synth_method", "SynthClass", "SynthDefined", "SynthName",
+        "Object", 0, "", false, nil, false, nil, true, nil, true
+      )
+      result = @db.execute("SELECT synthetic FROM treenodes WHERE id = ?", synth_id).first
+      expect(result[0]).to eq(1)
     end
 
     it 'inserts a tree node with a parent' do
