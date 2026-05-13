@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "tree_node_mapper"
+require_relative "node_label_resolver"
 require_relative "node_source_mapper"
 require_relative "metadata_mapper"
 require_relative "boundary_caller_mapper"
@@ -94,7 +95,8 @@ module Codebeacon
           tree_node.node_source&.id,
           tree_node.has_children,
           boundary_caller_id,
-          tree_node.synthetic
+          tree_node.synthetic,
+          NodeLabelResolver.resolve(tree_node)
         )
 
         tree_node.args.each do |arg|
