@@ -1,0 +1,11 @@
+<%
+  # Define a helper method inline. This `def` runs at render time and defines
+  # `inline_helper` on the same class the compiled template method is defined on.
+  # tp.path for inline_helper's body will be THIS .erb file, so a pure path-based
+  # ERB name rewrite would mislabel it. method_id will be :inline_helper (not mangled).
+  def inline_helper(x)
+    "[helper:#{x}]"
+  end
+%>
+<h1>With Inline Def</h1>
+<p><%= inline_helper("a") %> <%= inline_helper("b") %></p>

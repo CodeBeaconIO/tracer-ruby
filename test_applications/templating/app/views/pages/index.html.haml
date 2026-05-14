@@ -1,0 +1,5 @@
+%h1 Index (haml)
+%p hello from haml: #{local_assigns[:greeting] || "world"}
+%ul
+  - 2.times do |i|
+    %li= "row #{i}"
