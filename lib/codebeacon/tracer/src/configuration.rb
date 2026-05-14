@@ -39,6 +39,7 @@ module Codebeacon
           config_data = YAML.load_file(config_path)
           load_exclude_paths(config_data['exclude'])
           @track_boundary_callers = config_data['track_boundary_callers'] != false  # Default to true
+          @local_methods_only = config_data['local_methods_only'] == true
         end
       end
 

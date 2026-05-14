@@ -8,3 +8,6 @@ exclude:
     - 'debug'
 
 track_boundary_callers: true
+
+# Only trace methods whose source path is under root_path. Skips gems and stdlib.
+local_methods_only: true
