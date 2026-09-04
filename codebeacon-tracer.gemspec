@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.description = "Codebeacon::Tracer provides tools to trace and capture call graphs of execution paths."
   spec.homepage = "https://github.com/jconley88/codebeacon-tracer"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 2.6.0"
+  spec.required_ruby_version = ">= 3.0.0"
 
   # Remove the TODO and set to RubyGems
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
@@ -34,7 +34,7 @@ Gem::Specification.new do |spec|
 
   # Dependencies
   spec.add_dependency "parser", "~> 3.2"
-  spec.add_dependency 'sqlite3', '~> 1.4'
+  spec.add_dependency 'sqlite3', '~> 2.0'
   spec.add_dependency "listen", "~> 3.8", ">= 3.8.0"
   spec.add_development_dependency "pry", "~> 0.14"
   spec.add_development_dependency "debug", "~> 1.8"

@@ -17,7 +17,7 @@ module Codebeacon
         # Try to find existing record
         result = @db.execute(
           "SELECT id FROM boundary_callers WHERE outgoing_method = ? AND outgoing_method_as_called IS ?",
-          outgoing_method, outgoing_method_as_called
+          [outgoing_method, outgoing_method_as_called]
         ).first
 
         if result

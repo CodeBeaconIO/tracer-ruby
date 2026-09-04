@@ -62,7 +62,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
       
       @persistence_manager.save_node_sources([app_source, nil])
       
-      count = @db.execute("SELECT COUNT(*) FROM node_sources").first[0]
+      count = @db.execute("SELECT COUNT(*) AS count FROM node_sources").first["count"]
       expect(count).to eq(1)
     end
   end
@@ -162,7 +162,7 @@ RSpec.describe Codebeacon::Tracer::PersistenceManager do
 
       @persistence_manager.save_tree(tree_node)
 
-      count = @db.execute("SELECT COUNT(*) FROM captures").first[0]
+      count = @db.execute("SELECT COUNT(*) AS count FROM captures").first["count"]
       expect(count).to eq(0)
     end
 

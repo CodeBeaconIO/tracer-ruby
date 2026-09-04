@@ -1,3 +1,5 @@
+require "time"
+
 module Codebeacon
   module Tracer
     class MetadataMapper
@@ -33,7 +35,7 @@ module Codebeacon
       def insert(metadata)
         metadata_hash = metadata.to_hash
         
-        @db.execute(<<-SQL, 
+        @db.execute(<<-SQL,
           INSERT INTO metadata (
             name, description, caller_file, caller_method, caller_line,
             caller_class, caller_defined_class, start_time, end_time,
@@ -42,20 +44,21 @@ module Codebeacon
             ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
           )
         SQL
-          metadata_hash[:name],
-          metadata_hash[:description],
-          metadata_hash[:caller_file],
-          metadata_hash[:caller_method],
-          metadata_hash[:caller_line],
-          metadata_hash[:caller_class],
-          metadata_hash[:caller_defined_class],
-          metadata_hash[:start_time]&.iso8601,
-          metadata_hash[:end_time]&.iso8601,
-          metadata_hash[:duration_ms],
-          metadata_hash[:trigger_type],
-          metadata_hash[:language],
-          metadata_hash[:tracer_version]
-        )
+          [
+            metadata_hash[:name],
+            metadata_hash[:description],
+            metadata_hash[:caller_file],
+            metadata_hash[:caller_method],
+            metadata_hash[:caller_line],
+            metadata_hash[:caller_class],
+            metadata_hash[:caller_defined_class],
+            metadata_hash[:start_time]&.iso8601,
+            metadata_hash[:end_time]&.iso8601,
+            metadata_hash[:duration_ms],
+            metadata_hash[:trigger_type],
+            metadata_hash[:language],
+            metadata_hash[:tracer_version]
+          ])
       end
     end
   end

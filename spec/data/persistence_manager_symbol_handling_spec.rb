@@ -5,7 +5,6 @@ RSpec.describe "Symbol handling in PersistenceManager" do
   before(:all) do
     @db = SQLite3::Database.new ":memory:"
     @db.results_as_hash = true
-    @db.type_translation = true
     Codebeacon::Tracer::TreeNodeMapper.create_table(@db)
     Codebeacon::Tracer::NodeSourceMapper.create_table(@db)
     Codebeacon::Tracer::MetadataMapper.create_table(@db)
