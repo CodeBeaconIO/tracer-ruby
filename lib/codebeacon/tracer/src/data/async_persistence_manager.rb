@@ -57,7 +57,6 @@ module Codebeacon
       def persist_task(task)
         schema = DatabaseSchema.new(task.config)
         schema.create_tables
-        DatabaseSchema.trim_db_files(task.config)
         pm = PersistenceManager.new(schema.db)
         pm.save_metadata(task.metadata)
         pm.save_node_sources(task.node_sources)
@@ -65,6 +64,7 @@ module Codebeacon
         schema.create_indexes
         schema.db.close
         touch_refresh(task.config)
+        DatabaseSchema.trim_db_files(task.config)
       rescue StandardError => e
         @logger.error("AsyncPersistenceManager: Error during persistence: #{e.message}")
         @logger.error(e.backtrace.join("\n")) if task.config.debug?

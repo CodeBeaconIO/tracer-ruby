@@ -149,7 +149,6 @@ module Codebeacon
         begin
           schema = DatabaseSchema.new(config)
           schema.create_tables
-          DatabaseSchema.trim_db_files(config)
           pm = PersistenceManager.new(schema.db)
           pm.save_metadata(metadata)
           pm.save_node_sources(ordered_sources)
@@ -157,6 +156,7 @@ module Codebeacon
           schema.create_indexes
           schema.db.close
           touch_refresh(config)
+          DatabaseSchema.trim_db_files(config)
         rescue => e
           Codebeacon::Tracer.logger.error("Error during persistence: #{e.message}")
           Codebeacon::Tracer.logger.error(e.backtrace.join("\n")) if Codebeacon::Tracer.config.debug?
