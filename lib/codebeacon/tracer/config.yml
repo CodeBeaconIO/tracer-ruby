@@ -9,5 +9,8 @@ exclude:
 
 track_boundary_callers: true
 
+# Suppress the `debug` gem's TracePoint during persistence for performance.
+debug_gem_compatibility: true
+
 # Only trace methods whose source path is under root_path. Skips gems and stdlib.
 local_methods_only: true

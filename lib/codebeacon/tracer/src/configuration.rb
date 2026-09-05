@@ -38,8 +38,9 @@ module Codebeacon
         if File.exist?(config_path)
           config_data = YAML.load_file(config_path)
           load_exclude_paths(config_data['exclude'])
-          @track_boundary_callers = config_data['track_boundary_callers'] != false  # Default to true
-          @local_methods_only = config_data['local_methods_only'] == true
+          @track_boundary_callers = config_data['track_boundary_callers']
+          @local_methods_only = config_data['local_methods_only'] == true  # Default to false
+          @debug_gem_compatibility = config_data['debug_gem_compatibility']
         end
       end
 
@@ -297,6 +298,10 @@ module Codebeacon
 
       def track_boundary_callers?
         @track_boundary_callers != false  # Default to true if not set
+      end
+
+      def debug_gem_compatibility?
+        @debug_gem_compatibility != false  # Default to true if not set
       end
 
       private

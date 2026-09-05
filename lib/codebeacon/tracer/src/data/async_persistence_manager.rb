@@ -21,6 +21,8 @@ module Codebeacon
         return if running?
 
         @worker_thread = Thread.new do
+          Compatibility::DebugGem.suppress_current_thread if Codebeacon::Tracer.config.debug_gem_compatibility?
+
           # The thread will run until it receives a :shutdown symbol.
           while (task = @queue.pop)
             break if task == :shutdown

@@ -6,6 +6,7 @@ require 'securerandom'
 
 # Load all the source files
 Dir[File.join(File.dirname(__FILE__), 'codebeacon', 'tracer', 'src', '*.rb')].each { |file| require file }
+Dir[File.join(File.dirname(__FILE__), 'codebeacon', 'tracer', 'src', 'compat', '*.rb')].each { |file| require file }
 Dir[File.join(File.dirname(__FILE__), 'codebeacon', 'tracer', 'src', 'models', '*.rb')].each { |file| require file }
 Dir[File.join(File.dirname(__FILE__), 'codebeacon', 'tracer', 'src', 'data', '*.rb')].each { |file| require file }
 Dir[File.join(File.dirname(__FILE__), 'codebeacon', 'tracer', 'src', 'rails', '*.rb')].each { |file| require file } if defined?(Rails::Railtie)
